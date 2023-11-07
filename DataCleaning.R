@@ -1,107 +1,52 @@
-#############
-# FUNCTIONS #
-#############
-
-#*-----------------------------------------------------*#
-
-# Assign unique combos to variables
-var1 <- unique_df_05$LONGNUM
-var2 <- unique_df_05$LATNUM
-var3 <- unique_df_05$dateinterview_minus60
-var4 <- unique_df_05$dateinterview
-
-# NASAPower Function, Part 1
-# QV2M = 2 Meter Specific Humidity
-# RH2M = 2 Meter Relative Humidity
-# T2M = 2 Meter Air Temp (Kelvin)
-# GWETTOP = Surface Soil Wetness (0 = dry, 1 = wet)
-
-get_nasapower_1 <- function(var1, var2, var4){
-  get_power(community = "ag",
-            lonlat = c(var1, var2),
-            pars = c("QV2M", "RH2M", "T2M",
-                     "GWETTOP"),
-            dates = var4,
-            temporal_api = "daily")
-}
-
-weather_SN05 <- mapply(get_nasapower_1, var1, var2, var4)
-
-# Transpose and convert to dataframe
-weather_SN05 <- t(weather_SN05) %>% as.data.frame(.)
-
-# Convert to Character and write CSV to save results
-save(weather_SN05, file="weather_SN05.Rdata")
-
-#*-----------------------------------------------------*#
-
-
-#*-----------------------------------------------------*#
-
-# NASAPower Function, Part 2
-# 60 day precipitation and evaporation
-get_nasapower_2 <- function(var1, var2, var3, var4){
-  get_power(community = "ag",
-            lonlat = c(var1, var2),
-            pars = c("PRECTOTCORR", "EVLAND"),
-            dates = c(var3, var4),
-            temporal_api = "daily")
-}
-
-weather_precip_SN05 <- mapply(get_nasapower_2, var1, var2, var3, var4)
-
-# Transpose the data and save as a data frame
-weather_precip_SN05 <- t(weather_precip_SN05) %>% as.data.frame(.)
-  
-# Convert to Character and write CSV to save results
-save(weather_precip_SN05, file="weather_precip_SN05.Rdata")
-
-#*-----------------------------------------------------*#
-
-
-#*-----------------------------------------------------*#
-
-# Assign Koppen Geiger Classifications
-climate_class <- unique_df_05 %>% 
-  select(hv001, LONGNUM, LATNUM)
-
-climate_class <- data.frame(climate_class,
-                            rndCoord.lon = RoundCoordinates(climate_class$LONGNUM, res = 'fine', latlong = 'lon'),
-                            rndCoord.lat = RoundCoordinates(climate_class$LATNUM, res = 'fine', latlong = 'lat'))
-
-climate_class <- climate_class %>% 
-                 select(hv001, rndCoord.lon, rndCoord.lat)
-
-climate_class_SN05 <- data.frame(climate_class, ClimateZ = LookupCZ(climate_class, res = "fine", rc = FALSE))
-
-save(climate_class_SN05, file="climate_classification_SN05.Rdata")
-
-#*-----------------------------------------------------*#
-
-# Set Working Directory
-setwd("C:/Users/Steven/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/Senegal/SN_05")
-
-library(kgc)
-library(dplyr)
-library(tidyr)
+# Load Libraries
+library(tidyverse)
 library(haven)
 library(lubridate)
-library(nasapower)
+library(stringr)
 library(sf)
 
-##############################
-#                            #
-# Senegal 92-93 Data (DHS-2) #
-#                            #
-##############################
+# Specify the files to work on
+country <- "Senegal"
+name_year <- "SN_05"
 
-# Read in survey data (1992-1993)
-#hhmem_05 <- read_dta("SN_05_hhmember/SNPR21FL.DTA")
-hh_05 <- read_dta("SN_05_hh/SNHR4AFL.DTA")
-#child_05 <- read_dta("SN_05_child/SNKR21FL.DTA")
-#birth_05 <- read_dta("SN_05_birth/SNBR21FL.dta")
-#hw_05 <- read_dta("SN_05_heightweight/SNHW21FL.DTA")
-spatial_05 <- st_read("SN_05_gps/SNGE4BFL.shp")
+# Set Working Directory (HPC)
+#setwd(paste0("~/data-mdavis65/steven_sola/",country,"/",name_year))
+
+# Set Working Directory (Personal)
+setwd(paste0("C:/Users/Steven/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/",
+             country,"/",name_year))
+
+#Read in survey data (Household member)
+files <- list.files(pattern=c(".DTA|\\.shp$"), recursive = TRUE)
+files
+
+# Filter the list for the Household Member level, save to environment
+file_hhmember <- str_subset(files, "PR")
+assign(paste0("hhmem_", name_year), read_dta(file_hhmember))
+
+# Filter the list for the Household level, save to environment
+file_hh <- str_subset(files, "HR")
+assign(paste0("hh_", name_year), read_dta(file_hh))
+
+# Filter the list for the Child level, save to environment
+file_child <- str_subset(files, "KR")
+assign(paste0("child_", name_year), read_dta(file_child))
+
+# Filter the list for the Birth level, save to environment
+file_birth <- str_subset(files, "BR")
+assign(paste0("child_", name_year), read_dta(file_birth))
+
+# Filter the list for the Height/Weight level, save to environment
+file_hw <- str_subset(files, "HW")
+assign(paste0("hw_", name_year), read_dta(file_hw))
+
+# Filter the list for the Spatial, save to environment
+file_spatial <- str_subset(files, "GE")
+assign(paste0("spatial_", name_year), st_read(file_spatial))
+
+
+
+
 
 # Remove empty rows of HH dataset
 hh_05 <- hh_05[,colSums(is.na(hh_05))<nrow(hh_05)]
