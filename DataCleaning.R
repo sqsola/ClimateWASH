@@ -13,7 +13,7 @@ name_year <- "SN_05"
 #setwd(paste0("~/data-mdavis65/steven_sola/",country,"/",name_year))
 
 # Set Working Directory (Personal)
-setwd(paste0("C:/Users/Steven/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/",
+setwd(paste0("C:/Users/Steven Sola/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/",
              country,"/",name_year))
 
 #Read in survey data (Household member)
@@ -22,89 +22,63 @@ files
 
 # Filter the list for the Household Member level, save to environment
 file_hhmember <- str_subset(files, "PR")
-assign(paste0("hhmem_", name_year), read_dta(file_hhmember))
+hhmem <-  read_dta(file_hhmember)
 
 # Filter the list for the Household level, save to environment
 file_hh <- str_subset(files, "HR")
-assign(paste0("hh_", name_year), read_dta(file_hh))
+hh <- read_dta(file_hh)
 
 # Filter the list for the Child level, save to environment
 file_child <- str_subset(files, "KR")
-assign(paste0("child_", name_year), read_dta(file_child))
+child <- read_dta(file_child)
 
 # Filter the list for the Birth level, save to environment
 file_birth <- str_subset(files, "BR")
-assign(paste0("child_", name_year), read_dta(file_birth))
+birth <- read_dta(file_birth)
 
 # Filter the list for the Height/Weight level, save to environment
 file_hw <- str_subset(files, "HW")
-assign(paste0("hw_", name_year), read_dta(file_hw))
+hw <- read_dta(file_hw)
 
 # Filter the list for the Spatial, save to environment
 file_spatial <- str_subset(files, "GE")
-assign(paste0("spatial_", name_year), st_read(file_spatial))
-
-
-
-
+spatial <- st_read(file_spatial)
 
 # Remove empty rows of HH dataset
-hh_05 <- hh_05[,colSums(is.na(hh_05))<nrow(hh_05)]
+hh <- hh[,colSums(is.na(hh))<nrow(hh)]
 
 # Merge hhmem data to hh data
-#hhmem_05_join <- merge(hhmem_05, hh_05)
-
-# Commonalities between birth and join
-#common_birthchild <- intersect(names(birth_05), names(child_05))
+hhmem_join <- merge(hhmem, hh)
 
 # Sort, then merge births and Height / Weight Data
 # Use HWCASEID and HWLINE, from the Height and Weight file, with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
-#birth_05 <- birth_05[with(birth_05, order(caseid, bidx)), ]
-#hw_05 <- hw_05[with(hw_05, order(hwcaseid, hwline)), ]
-#birth_hw_05 <- left_join(birth_05, hw_05, by = c("caseid" = "hwcaseid", "bidx" = "hwline"))
+birth <- arrange(birth, caseid, bidx)
+hw <- arrange(hw, hwhhid, hwline)
+birth_hw <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
 
 # Merge all the datasets
-#hhmem_05_join <- hhmem_05_join[with(hhmem_05_join, order(hv001, hv002, hvidx)), ]
-#birth_hw_05 <- birth_hw_05[with(birth_hw_05, order(v001, v002, v003)), ]
-#full_05 <- left_join(hhmem_05_join, birth_hw_05, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
+hhmem_join <- arrange(hhmem_join, hv001, hv002, hvidx)
+birth_hw <- arrange(birth_hw, v001, v002, v003)
+full <- left_join(hhmem_join, birth_hw, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
 
 # Month of interview
 # CMC = Number of months since Jan 1 1900. Jan 1 1900 is CMC = 1
-full_05 <- hh_05
-full_05$monthinterview <- as.Date("1900-01-01")
-full_05$monthinterview <- full_05$monthinterview %m+% months(full_05$hv008-1)
-table(full_05$monthinterview)
-
-# you can check based off the age of the child. DOB of child and month of interview
-# all children under the age of 59 months, they should be included.
+full$monthinterview <- as.Date("1900-01-01")
+full$monthinterview <- full$monthinterview %m+% months(full$hv008-1)
 
 # Add Date to the interview month
-full_05$dateinterview <- full_05$monthinterview + (full_05$hv016-1)
+full$dateinterview <- full$monthinterview + (full$hv016-1)
 
 # 60 Days before and after date of the interview
-full_05$dateinterview_minus60 <- full_05$dateinterview - 60
-full_05$dateinterview_minus60 <- as.Date(full_05$dateinterview_minus60, format = "%Y-%m-%d")
-full_05$dateinterview_plus60 <- full_05$dateinterview + 60
-full_05$dateinterview_plus60 <- as.Date(full_05$dateinterview_plus60, format = "%Y-%m-%d")
+full$dateinterview_minus60 <- full$dateinterview - 60
+full$dateinterview_minus60 <- ymd(full$dateinterview_minus60)
+full$dateinterview_plus60 <- full$dateinterview + 60
+full$dateinterview_plus60 <- ymd(full$dateinterview_plus60)
 
 # join spatial to data
-full_05_spatial <- left_join(full_05, spatial_05, by = c("hv001" = "DHSCLUST"))
-
-# Get unique combos of lat, long, and dates
-unique_df_05 <- unique(full_05_spatial[c("LATNUM", "LONGNUM", "hv001", 
-                                             "dateinterview", "dateinterview_minus60")])
-
-unique_df_05 <- unique_df_05[!duplicated(unique_df_05), ]
-
-# Remove rows with 0 lat and long
-unique_df_05 <- unique_df_05 %>% filter(LATNUM != 0| LONGNUM != 0)
+full_spatial <- left_join(full, spatial, by = c("hv001" = "DHSCLUST"))
 
 #*------------------------------------------------------------------------------------*
-
-#*------------------------------------------------------------------------------------*
-
-# Import the one-day weather into the dataset
-load("weather_SN05.Rdata")
 
 # Import the 60-day weather into the dataset
 load("weather_precip_SN05.Rdata")
