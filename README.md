@@ -39,10 +39,24 @@ As a result, to get to the survey, you would have to travel: Senegal --\> SN_929
 
 #### ERA5Land.R
 
-#### Weather_Extraction_Data.R
+The ERA5Land.R file uses the `ecmwfr` package to download weather data to the local machine. This code starts by loading the files that have already been downloaded and "cleaning" the file names so that only the dates remain from the file names.
+
+After this step, an artificial dataframe is created with the desired dates (in this case, we want to download weather from between February 5, 1990, and December 31, 2023.
+
+The already-downloaded files are compared to this artificial dataset to see which dates have not yet been download. All missing dates are saved to a dataframe, and this dataframe is looped through the `ecmwfr` package to download the data. After each session (as downloading weather data could take a long time), the user is able to pick up again where they started, as the "missing" dates will get updated when the code is re-run.
 
 #### Weather_Extraction_Data.R
+
+Work in Progress
+
+#### Weather_Extraction_Data.R
+
+Work in Progress
 
 #### StandardEDA.R
 
-#### DTA_Cleaning.R
+Work in Progress
+
+#### FileExtension_Cleaning.R
+
+This script is a basic one which ensures all the .DTA file extensions (STATA) are all uppercase. There are some countries in which the file extension is .dta, and the code will not run in these instances, however rare they are.
