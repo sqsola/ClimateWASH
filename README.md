@@ -47,11 +47,7 @@ The already-downloaded files are compared to this artificial dataset to see whic
 
 #### Weather_Extraction_Data.R
 
-Work in Progress
-
-#### Weather_Extraction_Data.R
-
-Work in Progress
+THis script is designed to load in the survey data and extract the weather data for each cluster on their specific day. This script also assigns the Köppen-Geiger climate classification for each cluster.
 
 #### StandardEDA.R
 
