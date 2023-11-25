@@ -108,12 +108,8 @@ spatial <- spatial %>% filter(SOURCE != "MIS")
 # Filter out all infinitesimally small GPS points
 spatial <- spatial %>% filter(!between(LATNUM, -0.0001, 0.0001))
 
-# Ensure that the Spatial dataset year is only two characters (last two)
-spatial$DHSYEAR <- sprintf('%02d', spatial$DHSYEAR %% 100) %>% as.numeric
-full_survey$hv007 <- sprintf('%02d', full_survey$hv007 %% 100) %>% as.numeric
-
 # join spatial to data
-full_survey_spatial <- left_join(full_survey, spatial, by = c("hv001" = "DHSCLUST", "hv007" = "DHSYEAR"))
+full_survey_spatial <- left_join(full_survey, spatial, by = c("hv001" = "DHSCLUST"))
 
 # Get unique combos of lat, long, and dates
 unique_obs <- unique(full_survey_spatial[c("LATNUM", "LONGNUM", "hv001", 
