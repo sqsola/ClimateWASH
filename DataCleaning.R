@@ -1,3 +1,7 @@
+# Set the location
+location <- "personal"
+#location <- "HPC"
+
 # Load Libraries
 library(tidyverse)
 library(haven)
@@ -6,43 +10,52 @@ library(stringr)
 library(sf)
 
 # Specify the files to work on
-country <- "Senegal"
-name_year <- "SN_05"
+country <- "Togo"
+name_year <- "TG_1314"
 
-# Set Working Directory (HPC)
-#setwd(paste0("~/data-mdavis65/steven_sola/",country,"/",name_year))
+if (location == "personal") {
+  # Set Working Directory (Personal)
+  setwd(paste0("C:/Users/Steven/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/",
+               country,"/",name_year))
+}
 
-# Set Working Directory (Personal)
-setwd(paste0("C:/Users/Steven Sola/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/",
-             country,"/",name_year))
+if (location == "HPC") { 
+  # Set Working Directory (HPC)
+  setwd(paste0("~/data-mdavis65/steven_sola/",country,"/",name_year))
+}
 
 #Read in survey data (Household member)
 files <- list.files(pattern=c(".DTA|\\.shp$"), recursive = TRUE)
 files
 
 # Filter the list for the Household Member level, save to environment
-file_hhmember <- str_subset(files, "PR")
-hhmem <-  read_dta(file_hhmember)
+hhmem <- str_subset(files, "hhmember") %>% read_dta()
 
 # Filter the list for the Household level, save to environment
-file_hh <- str_subset(files, "HR")
-hh <- read_dta(file_hh)
+hh <- str_subset(files, "HR") %>% read_dta()
 
 # Filter the list for the Child level, save to environment
-file_child <- str_subset(files, "KR")
-child <- read_dta(file_child)
+child <- str_subset(files, "child") %>% read_dta()
 
 # Filter the list for the Birth level, save to environment
-file_birth <- str_subset(files, "BR")
-birth <- read_dta(file_birth)
+if (any(grepl("birth", unlist(files)))) {
+birth <- str_subset(files, "birth") %>% read_dta()
+}
 
 # Filter the list for the Height/Weight level, save to environment
-file_hw <- str_subset(files, "HW")
-hw <- read_dta(file_hw)
+if (any(grepl("heightweight", unlist(files)))) {
+hw <- str_subset(files, "heightweight") %>% read_dta()
+}
+
+# Filter the list for the wealth, save to environment
+if (any(grepl("wealth", unlist(files)))) {
+  hw <- str_subset(files, "wealth") %>% read_dta()
+}
 
 # Filter the list for the Spatial, save to environment
-file_spatial <- str_subset(files, "GE")
-spatial <- st_read(file_spatial)
+if (any(grepl("gps", unlist(files)))) {
+spatial <- str_subset(files, "gps") %>% st_read()
+}
 
 # Remove empty rows of HH dataset
 hh <- hh[,colSums(is.na(hh))<nrow(hh)]
@@ -50,16 +63,22 @@ hh <- hh[,colSums(is.na(hh))<nrow(hh)]
 # Merge hhmem data to hh data
 hhmem_join <- merge(hhmem, hh)
 
+if (any(grepl("birth", unlist(files)))) {
 # Sort, then merge births and Height / Weight Data
 # Use HWCASEID and HWLINE, from the Height and Weight file, with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
 birth <- arrange(birth, caseid, bidx)
 hw <- arrange(hw, hwhhid, hwline)
-birth_hw <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
+birth <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
+}
 
 # Merge all the datasets
 hhmem_join <- arrange(hhmem_join, hv001, hv002, hvidx)
-birth_hw <- arrange(birth_hw, v001, v002, v003)
-full <- left_join(hhmem_join, birth_hw, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
+birth <- arrange(birth, v001, v002, v003)
+full <- left_join(hhmem_join, birth, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
+full_semijoin <- semi_join(hhmem_join, birth, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
+
+# ERROR HANDLING
+stopifnot(nrow(hhmem_join) + nrow(birth) - nrow(full_semijoin) == nrow(full))
 
 # Month of interview
 # CMC = Number of months since Jan 1 1900. Jan 1 1900 is CMC = 1
