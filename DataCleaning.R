@@ -1,6 +1,6 @@
 # Set the location
-location <- "personal"
-#location <- "HPC"
+#location <- "personal"
+location <- "HPC"
 
 # Load Libraries
 library(tidyverse)
@@ -10,8 +10,8 @@ library(stringr)
 library(sf)
 
 # Specify the files to work on
-country <- "Togo"
-name_year <- "TG_1314"
+country <- "Burkina_Faso"
+name_year <- "BF_10"
 
 if (location == "personal") {
   # Set Working Directory (Personal)
@@ -35,7 +35,9 @@ hhmem <- str_subset(files, "hhmember") %>% read_dta()
 hh <- str_subset(files, "HR") %>% read_dta()
 
 # Filter the list for the Child level, save to environment
+if (any(grepl("birth", unlist(files)))) {
 child <- str_subset(files, "child") %>% read_dta()
+}
 
 # Filter the list for the Birth level, save to environment
 if (any(grepl("birth", unlist(files)))) {
@@ -63,22 +65,31 @@ hh <- hh[,colSums(is.na(hh))<nrow(hh)]
 # Merge hhmem data to hh data
 hhmem_join <- merge(hhmem, hh)
 
-if (any(grepl("birth", unlist(files)))) {
+if (exists("heightweight")) {
 # Sort, then merge births and Height / Weight Data
 # Use HWCASEID and HWLINE, from the Height and Weight file, with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
-birth <- arrange(birth, caseid, bidx)
-hw <- arrange(hw, hwhhid, hwline)
+birth <- birth %>% arrange(caseid, bidx)
+hw <- hw %>% arrange(hwhhid, hwline)
 birth <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
 }
 
+if (exists("child")) {
 # Merge all the datasets
-hhmem_join <- arrange(hhmem_join, hv001, hv002, hvidx)
-birth <- arrange(birth, v001, v002, v003)
-full <- left_join(hhmem_join, birth, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
-full_semijoin <- semi_join(hhmem_join, birth, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
+hhmem_join <- hhmem_join %>% arrange(hv001, hv002, hvidx)
+child <- child %>% arrange(v001, v002, v003)
+full <- left_join(hhmem_join, child, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
 
 # ERROR HANDLING
-stopifnot(nrow(hhmem_join) + nrow(birth) - nrow(full_semijoin) == nrow(full))
+stopifnot(nrow(hhmem_join) + nrow(child) - 
+          nrow(semi_join(hhmem_join, child, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))) == 
+          nrow(full))
+}
+
+
+setdiff(names(birth), names(child))
+
+
+
 
 # Month of interview
 # CMC = Number of months since Jan 1 1900. Jan 1 1900 is CMC = 1
