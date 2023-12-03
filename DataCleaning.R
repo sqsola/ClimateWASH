@@ -1,3 +1,5 @@
+# Header ------------------------------------------------------------------
+
 # Set the location
 #location <- "personal"
 location <- "HPC"
@@ -10,8 +12,8 @@ library(stringr)
 library(sf)
 
 # Specify the files to work on
-country <- "Burkina_Faso"
-name_year <- "BF_10"
+country <- "Uganda"
+name_year <- "UG_1819"
 
 if (location == "personal") {
   # Set Working Directory (Personal)
@@ -24,40 +26,44 @@ if (location == "HPC") {
   setwd(paste0("~/data-mdavis65/steven_sola/",country,"/",name_year))
 }
 
+# Load Files --------------------------------------------------------------
+
 #Read in survey data (Household member)
 files <- list.files(pattern=c(".DTA|\\.shp$"), recursive = TRUE)
 files
 
 # Filter the list for the Household Member level, save to environment
-hhmem <- str_subset(files, "hhmember") %>% read_dta()
+hhmem <- str_subset(files, "hhmember") %>% read_dta(., encoding = "latin1")
 
 # Filter the list for the Household level, save to environment
-hh <- str_subset(files, "HR") %>% read_dta()
+hh <- str_subset(files, "HR") %>% read_dta(., encoding = "latin1")
 
 # Filter the list for the Child level, save to environment
-if (any(grepl("birth", unlist(files)))) {
-child <- str_subset(files, "child") %>% read_dta()
+if (any(grepl("child", unlist(files)))) {
+child <- str_subset(files, "child") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the Birth level, save to environment
 if (any(grepl("birth", unlist(files)))) {
-birth <- str_subset(files, "birth") %>% read_dta()
+birth <- str_subset(files, "birth") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the Height/Weight level, save to environment
 if (any(grepl("heightweight", unlist(files)))) {
-hw <- str_subset(files, "heightweight") %>% read_dta()
+hw <- str_subset(files, "heightweight") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the wealth, save to environment
 if (any(grepl("wealth", unlist(files)))) {
-  hw <- str_subset(files, "wealth") %>% read_dta()
+  hw <- str_subset(files, "wealth") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the Spatial, save to environment
 if (any(grepl("gps", unlist(files)))) {
 spatial <- str_subset(files, "gps") %>% st_read()
 }
+
+# Merging -----------------------------------------------------------------
 
 # Remove empty rows of HH dataset
 hh <- hh[,colSums(is.na(hh))<nrow(hh)]
@@ -67,29 +73,41 @@ hhmem_join <- merge(hhmem, hh)
 
 if (exists("heightweight")) {
 # Sort, then merge births and Height / Weight Data
-# Use HWCASEID and HWLINE, from the Height and Weight file, with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
+# Use HWCASEID and HWLINE, from the Height and Weight file, 
+# with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
 birth <- birth %>% arrange(caseid, bidx)
 hw <- hw %>% arrange(hwhhid, hwline)
 birth <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
 }
 
-if (exists("child")) {
-# Merge all the datasets
-hhmem_join <- hhmem_join %>% arrange(hv001, hv002, hvidx)
-child <- child %>% arrange(v001, v002, v003)
-full <- left_join(hhmem_join, child, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
-
-# ERROR HANDLING
-stopifnot(nrow(hhmem_join) + nrow(child) - 
-          nrow(semi_join(hhmem_join, child, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))) == 
-          nrow(full))
+# Preferable to use birth since it has more data than child
+# However, there are some datasets that don't have birth, but have child
+# Use birth if available, else use child
+if (exists("birth")) {
+  offspring <- birth
+  cat('"Birth" is being used')
+} else if (exists("child")) {
+  offspring <- child
+  cat('"Child" is being used')
 }
 
+# Merge all the datasets
+hhmem_join <- hhmem_join %>% arrange(hv001, hv002, hvidx)
+offspring <- offspring %>% arrange(v001, v002, v003)
+full <- left_join(hhmem_join, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
 
-setdiff(names(birth), names(child))
+# ERROR HANDLING
+# Stop if the join wasn't preformed as expected
+stopifnot(nrow(hhmem_join) + nrow(offspring) - 
+          nrow(semi_join(hhmem_join, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))) == 
+          nrow(full))
 
+if (exists("spatial")) {
+  # join spatial to data
+  full <- left_join(full, spatial, by = c("hv001" = "DHSCLUST"))
+}
 
-
+# Dates -------------------------------------------------------------------
 
 # Month of interview
 # CMC = Number of months since Jan 1 1900. Jan 1 1900 is CMC = 1
@@ -99,19 +117,54 @@ full$monthinterview <- full$monthinterview %m+% months(full$hv008-1)
 # Add Date to the interview month
 full$dateinterview <- full$monthinterview + (full$hv016-1)
 
-# 60 Days before and after date of the interview
-full$dateinterview_minus60 <- full$dateinterview - 60
-full$dateinterview_minus60 <- ymd(full$dateinterview_minus60)
-full$dateinterview_plus60 <- full$dateinterview + 60
-full$dateinterview_plus60 <- ymd(full$dateinterview_plus60)
+# This section will run if the country is Ethiopia
+# This will convert the dates from the Ethiopian calendar to Gregorian calendar
+if (country == "Ethiopia") {
+  
+  # Create new variables so that R doesn't get confused with lubridate functions.
+  full <- full %>% 
+    mutate(year_eth = hv007, month_eth = month(monthinterview), day_eth = day(dateinterview))
+  
+  # Create Gregorian date based off Ethiopian date
+  full <- full %>% 
+    mutate(dateinterview_greg = ethiopianToGregorian(year = as.numeric(.$year_eth),
+                                                     month = as.numeric(.$month_eth),
+                                                     date = as.numeric(.$day_eth)))
+  
+  # Ensure the date is in Date format
+  full$dateinterview <- as.Date(full$dateinterview_greg)
+  
+  # Push the new dates to the old date variables
+  full$hv007 <- year(full$dateinterview)
+  full$hv006 <- month(full$dateinterview)
+  full$hv016 <- day(full$dateinterview)
+  print("Dates were converted from the Ethiopian to the Gregorian Calendar")
+}
 
-# join spatial to data
-full_spatial <- left_join(full, spatial, by = c("hv001" = "DHSCLUST"))
+# Insert Weather ----------------------------------------------------------
 
-#*------------------------------------------------------------------------------------*
+# Set working directory for the weather data
+setwd("~/data-mdavis65/steven_sola/2_Weather_Processed/Rdata")
 
 # Import the 60-day weather into the dataset
-load("weather_precip_SN05.Rdata")
+load(paste0(name_year, "_weatherfinal"))
+
+# Check for any missings and stop if any are found
+stopifnot(sum(is.na(weather_final)) == 0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Clean the 60 day weather data
 ## Remove unwanted variables
