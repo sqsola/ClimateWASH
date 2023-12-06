@@ -149,9 +149,28 @@ setwd("~/data-mdavis65/steven_sola/2_Weather_Processed/Rdata")
 # Import the 60-day weather into the dataset
 load(paste0(name_year, "_weatherfinal"))
 
+# Remove the unneeded columns
+weather_final <- weather_final %>% 
+                    select(-c(tz_name, date_time, zone, is_dst,
+                              utc_offset_h, utc_offset))
+
 # Check for any missings and stop if any are found
 stopifnot(sum(is.na(weather_final)) == 0)
 
+# Accumulation variables from ERA5-Land
+accum_vars <- c("e", "sro", "ssro", "tp")
+
+# For loop for finding the total for the past 60 days
+# As well as the 90th, 95th, 99th, and 99.9th percentile
+for (weather_var in accum_vars) {
+weather_final <- weather_final %>%  
+                  rowwise() %>%
+                    mutate(!!paste0(weather_var,"_total"):=sum(across(starts_with(paste0(weather_var,"_"))))) %>% 
+                      mutate(!!paste0(weather_var,"_90"):=.data[[!!paste0(weather_var,"_total")]] * 0.9) %>% 
+                      mutate(!!paste0(weather_var,"_95"):=.data[[!!paste0(weather_var,"_total")]] * 0.95) %>% 
+                      mutate(!!paste0(weather_var,"_99"):=.data[[!!paste0(weather_var,"_total")]] * 0.99) %>% 
+                      mutate(!!paste0(weather_var,"_999"):=.data[[!!paste0(weather_var,"_total")]] * 0.999)
+}
 
 
 
@@ -160,110 +179,12 @@ stopifnot(sum(is.na(weather_final)) == 0)
 
 
 
-
-
-
-
-
-
-# Clean the 60 day weather data
-## Remove unwanted variables
-weather_precip_SN05 <- select(weather_precip_SN05, -c(MM, DD, DOY, YEAR))
-
-### If there are 0 Lat and 0 Long, Remove
-
-## Remove unwanted characters from entire dataframe
-weather_precip_SN05 <- as.data.frame(lapply(weather_precip_SN05, function(x) gsub("[c()]","", x)))
-
-## Remove extra values in the cell for lat/long
-weather_precip_SN05$LAT<- gsub("\\,.*","",weather_precip_SN05$LAT)
-weather_precip_SN05$LON<- gsub("\\,.*","",weather_precip_SN05$LON)
-
-## Deliminate the PRECTOTCORR and EVLAND Variables into separate variables
-weather_precip_SN05 <- weather_precip_SN05 %>% 
-                         separate(PRECTOTCORR, into = paste0("P", 1:61), sep = ",")
-
-weather_precip_SN05 <- weather_precip_SN05 %>% 
-                         separate(EVLAND, into = paste0("EV", 1:61), sep = ",")
-
-## Convert Evaporation into mm/day
-weather_precip_SN05 <- weather_precip_SN05 %>% mutate_at(vars(contains('EV')), as.numeric) %>% 
-  mutate_at(vars(contains('EV')), ~ (. / 1000000) * 86400) 
-
-## Deliminate the Date Variable into separate variables
-weather_precip_SN05 <- weather_precip_SN05 %>% 
-                         separate(YYYYMMDD, into = paste0("Y", 1:61), sep = ",")
-
-## Keep only "Date61" (date of the survey)
-weather_precip_SN05 <- weather_precip_SN05 %>% 
-                         rename("SurveyDate" = "Y61") %>% #Rename the survey date variable
-                         select(-grep("Y", names(.))) #Drop all other dates
-
-## Convert date into readable date
-weather_precip_SN05 <- weather_precip_SN05 %>% 
-                         mutate(SurveyDate = as.numeric(SurveyDate)) %>%   # ensure class is numeric
-                         mutate(SurveyDate = as.Date(SurveyDate, origin = "1970-01-01")) # convert to date using Excel origin                       
-                          
-## Rename variables
-names(weather_precip_SN05)[4:64] = paste0("precip_minus", 60:0)
-names(weather_precip_SN05)[65:125] = paste0("evap_minus", 60:0)
-
-## Turn variables into numeric
-weather_precip_SN05 <- weather_precip_SN05 %>% 
-                         mutate_if(is.character, as.numeric)
-
-## Sum of precipitations with 90, 95, and 99 percentiles
-### Overall
-weather_precip_SN05$precip_overalltotal <- rowSums(weather_precip_SN05[ , 4:64])
-weather_precip_SN05$precip_overalltotal_90 <- weather_precip_SN05$precip_overalltotal * 0.90
-weather_precip_SN05$precip_overalltotal_95 <- weather_precip_SN05$precip_overalltotal * 0.95
-weather_precip_SN05$precip_overalltotal_99 <- weather_precip_SN05$precip_overalltotal * 0.99
-weather_precip_SN05$precip_overalltotal_999 <- weather_precip_SN05$precip_overalltotal * 0.999
-
-### -60 days (column 4) to -30 days (column 34)
-weather_precip_SN05$precip_minus2mototal <- rowSums(weather_precip_SN05[ , 4:34])
-weather_precip_SN05$precip_minus2mototal_90 <- weather_precip_SN05$precip_minus2mototal * 0.90
-weather_precip_SN05$precip_minus2mototal_95 <- weather_precip_SN05$precip_minus2mototal * 0.95
-weather_precip_SN05$precip_minus2mototal_99 <- weather_precip_SN05$precip_minus2mototal * 0.99
-weather_precip_SN05$precip_minus2mototal_999 <- weather_precip_SN05$precip_minus2mototal * 0.999
-
-### -29 days (column 34) to -0 days (day of survey / column 64)
-weather_precip_SN05$precip_minus1mototal <- rowSums(weather_precip_SN05[ , 35:64])
-weather_precip_SN05$precip_minus1mototal_90 <- weather_precip_SN05$precip_minus1mototal * 0.90
-weather_precip_SN05$precip_minus1mototal_95 <- weather_precip_SN05$precip_minus1mototal * 0.95
-weather_precip_SN05$precip_minus1mototal_99 <- weather_precip_SN05$precip_minus1mototal * 0.99
-weather_precip_SN05$precip_minus1mototal_999 <- weather_precip_SN05$precip_minus1mototal * 0.999
-
-## Sum of evaporations
-### Overall
-weather_precip_SN05$evap_overalltotal <- rowSums(weather_precip_SN05[ , 65:125])
-
-### -60 days (column 65) to -30 days (column 95)
-weather_precip_SN05$evap_minus2mototal <- rowSums(weather_precip_SN05[ , 65:95])
-
-### -29 days (column 96) to -0 days (day of survey / column 125)
-weather_precip_SN05$evap_minus1mototal <- rowSums(weather_precip_SN05[ , 96:125])
-
-## dedupe
-weather_precip_SN05 <- weather_precip_SN05[!duplicated(weather_precip_SN05), ]
 
 # Join the weather data to the full dataset
 weather_precip_SN05 <- weather_precip_SN05[with(weather_precip_SN05, order(LAT, LON, SurveyDate)), ]
 full_05_spatial <- full_05_spatial[with(full_05_spatial, order(LATNUM, LONGNUM, dateinterview)), ]
 full_05_weather <- right_join(full_05_spatial, weather_precip_SN05, 
                          by = c("LONGNUM" = "LON", "LATNUM" = "LAT", "dateinterview" = "SurveyDate"))
-
-# Import the climate classifications into code
-load("climate_classification_SN05.Rdata")
-
-## dedupe
-climate_class_SN05 <- climate_class_SN05[!duplicated(climate_class_SN05), ] %>% 
-                        mutate(ClimateZ = trimws(as.character(ClimateZ)))
-
-# Join the weather data to the full dataset
-climate_class_SN05 <- climate_class_SN05[with(climate_class_SN05, order(hv001)), ]
-full_05_weather <- full_05_weather[with(full_05_weather, order(hv001)), ]
-final_05 <- left_join(full_05_weather, climate_class_SN05, by = c( "hv001" = "hv001"))
 
 # Drop all the HV1xx variables
 final_05 <- final_05 %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry")))
