@@ -12,8 +12,8 @@ library(stringr)
 library(sf)
 
 # Specify the files to work on
-country <- "Uganda"
-name_year <- "UG_1819"
+country <- "Cameroon"
+name_year <- "CM_98"
 
 if (location == "personal") {
   # Set Working Directory (Personal)
@@ -40,27 +40,27 @@ hh <- str_subset(files, "HR") %>% read_dta(., encoding = "latin1")
 
 # Filter the list for the Child level, save to environment
 if (any(grepl("child", unlist(files)))) {
-child <- str_subset(files, "child") %>% read_dta(., encoding = "latin1")
+  child <- str_subset(files, "child") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the Birth level, save to environment
 if (any(grepl("birth", unlist(files)))) {
-birth <- str_subset(files, "birth") %>% read_dta(., encoding = "latin1")
+  birth <- str_subset(files, "birth") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the Height/Weight level, save to environment
 if (any(grepl("heightweight", unlist(files)))) {
-hw <- str_subset(files, "heightweight") %>% read_dta(., encoding = "latin1")
+  hw <- str_subset(files, "heightweight") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the wealth, save to environment
 if (any(grepl("wealth", unlist(files)))) {
-  hw <- str_subset(files, "wealth") %>% read_dta(., encoding = "latin1")
+  wealth <- str_subset(files, "wealth") %>% read_dta(., encoding = "latin1")
 }
 
 # Filter the list for the Spatial, save to environment
 if (any(grepl("gps", unlist(files)))) {
-spatial <- str_subset(files, "gps") %>% st_read()
+  spatial <- str_subset(files, "gps") %>% st_read()
 }
 
 # Merging -----------------------------------------------------------------
@@ -71,13 +71,13 @@ hh <- hh[,colSums(is.na(hh))<nrow(hh)]
 # Merge hhmem data to hh data
 hhmem_join <- merge(hhmem, hh)
 
-if (exists("heightweight")) {
 # Sort, then merge births and Height / Weight Data
 # Use HWCASEID and HWLINE, from the Height and Weight file, 
 # with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
-birth <- birth %>% arrange(caseid, bidx)
-hw <- hw %>% arrange(hwhhid, hwline)
-birth <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
+if (exists("heightweight")) {
+  birth <- birth %>% arrange(caseid, bidx)
+  hw <- hw %>% arrange(hwhhid, hwline)
+  birth <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
 }
 
 # Preferable to use birth since it has more data than child
@@ -91,15 +91,22 @@ if (exists("birth")) {
   cat('"Child" is being used')
 }
 
+# Merge Wealth to hhmem
+if (exists("wealth")) {
+wealth <- wealth %>% arrange(whhid)
+hhmem_join <- hhmem_join %>% arrange(hhid)
+hhmem_join_wealth <- left_join(hhmem_join, wealth, by = c("hhid" = "whhid"))
+}
+
 # Merge all the datasets
-hhmem_join <- hhmem_join %>% arrange(hv001, hv002, hvidx)
+hhmem_join_wealth <- hhmem_join_wealth %>% arrange(hv001, hv002, hvidx)
 offspring <- offspring %>% arrange(v001, v002, v003)
-full <- left_join(hhmem_join, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
+full <- left_join(hhmem_join_wealth, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
 
 # ERROR HANDLING
 # Stop if the join wasn't preformed as expected
-stopifnot(nrow(hhmem_join) + nrow(offspring) - 
-          nrow(semi_join(hhmem_join, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))) == 
+stopifnot(nrow(hhmem_join_wealth) + nrow(offspring) - 
+          nrow(semi_join(hhmem_join_wealth, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))) == 
           nrow(full))
 
 if (exists("spatial")) {
@@ -157,6 +164,8 @@ weather_final <- weather_final %>%
 # Check for any missings and stop if any are found
 stopifnot(sum(is.na(weather_final)) == 0)
 
+# Calculate the Weather Extremes --------------------------------------------------
+
 # Variables from ERA5-Land
 accum_var <- c("e", "sro", "ssro", "tp")
 instant_var <- c("t2m", "skt", "d2m")
@@ -213,10 +222,15 @@ for (weather_var in accum_var) {
                         mutate(!!paste0(weather_var,"_avgminus60_999"):=.data[[!!paste0(weather_var,"_avgminus60")]] * 0.999)
 }
 
+# Merge Weather and Survey ------------------------------------------------
+
 # Join the weather data to the full dataset
 weather_final <- weather_final %>% arrange(LATNUM, LONGNUM, hv001, dateinterview)
 full <- full %>% arrange(LATNUM, LONGNUM, hv001, dateinterview)
 full_weather <- left_join(full, weather_final, by = c("LATNUM", "LONGNUM", "hv001", "dateinterview"))
+
+# Error Handling
+stopifnot(nrow(full_weather) == nrow(full))
 
 # Drop all the HV1xx variables
 full_weather <- full_weather %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry")))
@@ -227,3 +241,5 @@ write.csv(full_weather, paste0("~/scr4-mdavis65/ssola1/Survey_Weather/CSV/", nam
 
 save(full_weather, file= paste0("~/data-mdavis65/steven_sola/3_Survey_Weather/Rdata/", name_year, "_weatherfinal"))
 save(full_weather, file= paste0("~/scr4-mdavis65/ssola1/Survey_Weather/Rdata/", name_year, "_weatherfinal"))
+
+rm(list=ls())
