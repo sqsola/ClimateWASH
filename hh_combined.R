@@ -14,14 +14,9 @@ library(readxl)
 library(data.table)
 library(ethiopianDate)
 
-countries <- read_excel("Country_Index_HPC.xlsx")
-
-for(entry in 1:nrow(countries)) {
-
 # Specify the files to work on
-country <- countries$country[[entry]]
-name_year <- countries$name_year[[entry]]
-
+country <- "ENTER COUNTRY NAME"
+name_year <- "ENTER NAME_YEAR"
 
 # Start message
 cat(paste0("\n", name_year, " has started processing", "\n"))
@@ -220,45 +215,7 @@ saveRDS(full, file= paste0("~/scr4-mdavis65/ssola1/HHlevel/Rdata/", name_year, "
 # Finish message
 cat(paste0("\n", name_year, " has finished processing", "\n"))
 
-rm (list=setdiff(ls(), c("countries", "location")))
-
-}
-
 # Combing HH Files --------------------------------------------------------
-
-# Set the working directory to where the Rdata files are stored
-setwd("~/data-mdavis65/steven_sola/4_HHlevel/Rdata")
-
-# sum(file.info(list.files(".", all.files = T, recursive = T))$size)
-
-# Load in the Rdata files
-hh_files <- list.files(pattern = "*.Rdata", full.names = T)
-
-# Create the resulting dataframe
-hh_combined <- data.frame()
-
-# for the iteration number
-dataset <- 0
-
-for (file in hh_files) {
-  
-  # load the current Rdata file
-  current_file <- readRDS(file)
-  
-  # Print the dataset and iteration number
-  dataset <- dataset + 1
-  
-  cat("\n", "Current file: ", file, "\n",
-      "Iteration number: ", dataset)
-  
-  # Bind the current df to the result df
-  hh_combined <- bind_rows(hh_combined, current_file)
-  
-  # Save the resulting dataframe
-  saveRDS(hh_combined, "~/data-mdavis65/steven_sola/4_HHlevel/combinedhh.Rdata")
-  
-}
-
 
 # Set the working directory to where the Rdata files are stored
 setwd("~/data-mdavis65/steven_sola/4_HHlevel/Rdata")

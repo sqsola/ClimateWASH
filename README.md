@@ -56,3 +56,11 @@ Work in Progress
 #### FileExtension_Cleaning.R
 
 This script is a basic one which ensures all the .DTA file extensions (STATA) are all uppercase. There are some countries in which the file extension is .dta, and the code will not run in these instances, however rare they are.
+
+#### hh_combined.R
+
+Focused only on the household-level files. Cleaning the files and prepping them to be combined at the end. 
+
+#### CodeGraveyard.R
+
+Bits of code that I don't need anymore, but can't seem to get rid of...

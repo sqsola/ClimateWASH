@@ -10,10 +10,23 @@ library(haven)
 library(lubridate)
 library(stringr)
 library(sf)
+library(readxl)
+library(data.table)
+library(ethiopianDate)
+
+# countries <- read_excel("Country_Index_HPC.xlsx")
+
+# for(entry in 1:nrow(countries)) {
 
 # Specify the files to work on
+# country <- countries$country[[entry]]
+# name_year <- countries$name_year[[entry]]
+
 country <- "Cameroon"
 name_year <- "CM_98"
+
+# Start message
+print(paste0(name_year, " has started processing"))
 
 if (location == "personal") {
   # Set Working Directory (Personal)
@@ -68,17 +81,6 @@ if (any(grepl("gps", unlist(files)))) {
 # Remove empty rows of HH dataset
 hh <- hh[,colSums(is.na(hh))<nrow(hh)]
 
-# Merge hhmem data to hh data
-hhmem_join <- merge(hhmem, hh)
-
-# Sort, then merge births and Height / Weight Data
-# Use HWCASEID and HWLINE, from the Height and Weight file, 
-# with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
-if (exists("heightweight")) {
-  birth <- birth %>% arrange(caseid, bidx)
-  hw <- hw %>% arrange(hwhhid, hwline)
-  birth <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
-}
 
 # Preferable to use birth since it has more data than child
 # However, there are some datasets that don't have birth, but have child
@@ -91,23 +93,109 @@ if (exists("birth")) {
   cat('"Child" is being used')
 }
 
+
+if (name_year == "CM_91") {
+
+# Trim the whitespace of the HHID and Case ID variables
+hh$hhid_clean <- trimws(hh$hhid)
+offspring$caseid_clean <- trimws(offspring$caseid)
+
+# Manually change a merged caseid number
+offspring <- offspring %>% 
+  mutate(caseid_clean = ifelse(caseid_clean == "99132 1  4", "99 132 1 4", caseid_clean)) %>% 
+  mutate(caseid_clean = ifelse(caseid_clean == "99132 1  2", "99 132 1 2", caseid_clean)) %>% 
+  mutate(caseid_clean = ifelse(caseid_clean == "104 8727  2", "104 872 7  2", caseid_clean))%>% 
+  mutate(caseid_clean = ifelse(caseid_clean == "104 8811  2", "104 881 1  2", caseid_clean))
+
+# Remove the numbers after the last space (twice)
+offspring$caseid_clean <- gsub(" [^ ]*$", "", offspring$caseid_clean) %>% trimws()
+# offspring$caseid_clean <- gsub(" [^ ]*$", "", offspring$caseid_clean) %>% trimws()
+
+# Separate out 44 and 73 households that were merged
+hh <- hh %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "4440010", "44 400 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "7312610", "73 126 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "104 8613", "104 86 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "104 8639", "104 86 3", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "104 8715", "104 87 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "104 8727", "104 87 2", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "104 8811", "104 88 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "46 1812", "46 18 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "47  113", "47 11 3", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "80 4010", "80 40 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "88 5611", "88 561 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "113 3030", "113 30 3", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "122 6711", "122 67 1", hhid_clean)) %>% 
+  mutate(hhid_clean = ifelse(hhid_clean == "142 4412", "142 44 1", hhid_clean)) 
+
+# Remove the numbers after the last space
+# hh$hhid_clean <- gsub(" [^ ]*$", "", hh$hhid_clean) %>% trimws()
+
+# Detect the number of digits in a row,
+# If 4 digits in a row, add a space after the first digit
+# If 5 digits in a row, add a space after the second digit
+# If 6 digits in a row, add a space after the third digit
+# If doesn't meet any conditions, original HHID
+
+hh <- hh %>% 
+  mutate(
+    hhid_clean = case_when(
+      str_detect(hhid_clean, "^\\d{4,4}$") ~ gsub(hhid_clean, pattern = "(.{1})(.*)", replacement = "\\1 \\2"),
+      str_detect(hhid_clean, "^\\d{5,5}$") ~ gsub(hhid_clean, pattern = "(.{2})(.*)", replacement = "\\1 \\2"),
+      str_detect(hhid_clean, "^\\d{6,6}$") ~ gsub(hhid_clean, pattern = "(.{3})(.*)", replacement = "\\1 \\2"),
+      TRUE ~ hhid_clean
+    )
+  )
+
+hh <- hh %>% 
+  separate(hhid_clean, into = c("hhid_clean", "hv002"), sep = "\\s+") %>% 
+  relocate(hv002, .after = hv001) %>%
+  select(-hhid_clean)
+
+hh$hv002 <- as.numeric(hh$hv002)
+
+class(hh$hv002)
+}
+
+
+
+
+
+# Merge hhmem data to hh data
+hh <- hh %>% arrange(hhid)
+hhmem <- hhmem %>% arrange(hhid)
+hhmem_join <- left_join(hhmem, hh, keep = FALSE)
+
+# Sort, then merge births and Height / Weight Data
+# Use HWCASEID and HWLINE, from the Height and Weight file, 
+# with CASEID and BIDX, from the Births Recode file to merge it with the Births’ data
+if (exists("heightweight")) {
+  birth <- birth %>% arrange(caseid, bidx)
+  hw <- hw %>% arrange(hwhhid, hwline)
+  birth <- left_join(birth, hw, by = c("caseid" = "hwhhid", "bidx" = "hwline"))
+}
+
+
+
+
+
 # Merge Wealth to hhmem
 if (exists("wealth")) {
 wealth <- wealth %>% arrange(whhid)
 hhmem_join <- hhmem_join %>% arrange(hhid)
-hhmem_join_wealth <- left_join(hhmem_join, wealth, by = c("hhid" = "whhid"))
+hhmem_join <- left_join(hhmem_join, wealth, by = c("hhid" = "whhid"))
 }
 
 # Merge all the datasets
-hhmem_join_wealth <- hhmem_join_wealth %>% arrange(hv001, hv002, hvidx)
+hhmem_join <- hhmem_join %>% arrange(hv001, hv002, hvidx)
 offspring <- offspring %>% arrange(v001, v002, v003)
-full <- left_join(hhmem_join_wealth, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
+full <- left_join(hhmem_join, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))
 
 # ERROR HANDLING
 # Stop if the join wasn't preformed as expected
-stopifnot(nrow(hhmem_join_wealth) + nrow(offspring) - 
-          nrow(semi_join(hhmem_join_wealth, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))) == 
-          nrow(full))
+stopifnot(nrow(hhmem_join) + nrow(offspring) - 
+            nrow(semi_join(hhmem_join, offspring, by = c("hv001" = "v001", "hv002" = "v002", "hvidx" = "v003"))) == 
+            nrow(full))
 
 if (exists("spatial")) {
   # join spatial to data
@@ -130,7 +218,7 @@ if (country == "Ethiopia") {
   
   # Create new variables so that R doesn't get confused with lubridate functions.
   full <- full %>% 
-    mutate(year_eth = hv007, month_eth = month(monthinterview), day_eth = day(dateinterview))
+    mutate(year_eth = hv007, month_eth = lubridate::month(monthinterview), day_eth = day(dateinterview))
   
   # Create Gregorian date based off Ethiopian date
   full <- full %>% 
@@ -143,12 +231,14 @@ if (country == "Ethiopia") {
   
   # Push the new dates to the old date variables
   full$hv007 <- year(full$dateinterview)
-  full$hv006 <- month(full$dateinterview)
+  full$hv006 <- lubridate::month(full$dateinterview)
   full$hv016 <- day(full$dateinterview)
   print("Dates were converted from the Ethiopian to the Gregorian Calendar")
 }
 
 # Insert Weather ----------------------------------------------------------
+
+if (exists("spatial")) {
 
 # Set working directory for the weather data
 setwd("~/data-mdavis65/steven_sola/2_Weather_Processed/Rdata")
@@ -227,19 +317,28 @@ for (weather_var in accum_var) {
 # Join the weather data to the full dataset
 weather_final <- weather_final %>% arrange(LATNUM, LONGNUM, hv001, dateinterview)
 full <- full %>% arrange(LATNUM, LONGNUM, hv001, dateinterview)
-full_weather <- left_join(full, weather_final, by = c("LATNUM", "LONGNUM", "hv001", "dateinterview"))
+full <- left_join(full, weather_final, by = c("LATNUM", "LONGNUM", "hv001", "dateinterview"))
 
-# Error Handling
-stopifnot(nrow(full_weather) == nrow(full))
+}
+
+# Add in the name_year column, relocate to the beginning
+full$name_year <- name_year
+
+full <- full %>% relocate(name_year, .before = hhid)
 
 # Drop all the HV1xx variables
-full_weather <- full_weather %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry")))
+full <- full %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry", "sb")))
 
 # Write the final dataset to the main Senegal folder
-write.csv(full_weather, paste0("~/data-mdavis65/steven_sola/3_Survey_Weather/CSV/", name_year,"_weatherfinal.csv"))
-write.csv(full_weather, paste0("~/scr4-mdavis65/ssola1/Survey_Weather/CSV/", name_year, "_weatherfinal.csv"))
+fwrite(full, file = paste0("~/data-mdavis65/steven_sola/3_Survey_Weather/CSV/", name_year,"_weatherfinal.csv"))
+fwrite(full, file = paste0("~/scr4-mdavis65/ssola1/Survey_Weather/CSV/", name_year, "_weatherfinal.csv"))
 
-save(full_weather, file= paste0("~/data-mdavis65/steven_sola/3_Survey_Weather/Rdata/", name_year, "_weatherfinal"))
-save(full_weather, file= paste0("~/scr4-mdavis65/ssola1/Survey_Weather/Rdata/", name_year, "_weatherfinal"))
+save(full, file= paste0("~/data-mdavis65/steven_sola/3_Survey_Weather/Rdata/", name_year, "_weatherfinal"))
+save(full, file= paste0("~/scr4-mdavis65/ssola1/Survey_Weather/Rdata/", name_year, "_weatherfinal"))
 
-rm(list=ls())
+# Finish message
+print(paste0(name_year, " has finished processing"))
+
+rm (list=setdiff(ls(), c("countries", "location")))
+
+}
