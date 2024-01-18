@@ -14,9 +14,14 @@ library(readxl)
 library(data.table)
 library(ethiopianDate)
 
+countries <- read_excel("Country_Index_HPC.xlsx")
+
+for(entry in 1:nrow(countries)) {
+
 # Specify the files to work on
-country <- "ENTER COUNTRY NAME"
-name_year <- "ENTER NAME_YEAR"
+country <- countries$country[[entry]]
+name_year <- countries$name_year[[entry]]
+
 
 # Start message
 cat(paste0("\n", name_year, " has started processing", "\n"))
@@ -58,7 +63,6 @@ if (any(grepl("gps", unlist(files)))) {
 
 # Remove empty rows of HH dataset
 hh <- hh[,colSums(is.na(hh))<nrow(hh)]
-
 
 # Merge Wealth to hhmem
 if (exists("wealth")) {
@@ -108,7 +112,7 @@ if (country == "Ethiopia") {
   full$hv007 <- year(full$dateinterview)
   full$hv006 <- lubridate::month(full$dateinterview)
   full$hv016 <- day(full$dateinterview)
-  cat("/n", "Dates were converted from the Ethiopian to the Gregorian Calendar", "/n")
+  cat("\n", "Dates were converted from the Ethiopian to the Gregorian Calendar", "\n")
 }
 
 # Insert Weather ----------------------------------------------------------
@@ -194,20 +198,95 @@ weather_final <- weather_final %>% arrange(LATNUM, LONGNUM, hv001, dateinterview
 full <- full %>% arrange(LATNUM, LONGNUM, hv001, dateinterview)
 full <- left_join(full, weather_final, by = c("LATNUM", "LONGNUM", "hv001", "dateinterview"))
 
-# Error Handling
-stopifnot(nrow(full) == nrow(full))
-
 }
 
+# Add in the name_year column, relocate to the beginning
+full$name_year <- name_year
+full <- full %>% relocate(name_year, .before = hhid)
+
+# Remove all labels from the SPSS datasets
+full <- zap_labels(full)
+
 # Drop all the HV1xx variables
-full <- full %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry")))
+full <- full %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry", "sb")))
 
 # Write the final dataset to the main Senegal folder
 fwrite(full, file = paste0("~/data-mdavis65/steven_sola/4_HHlevel/CSV/", name_year,"_hhweather.csv"))
 fwrite(full, file = paste0("~/scr4-mdavis65/ssola1/HHlevel/CSV/", name_year, "_hhweather.csv"))
 
-save(full, file= paste0("~/data-mdavis65/steven_sola/4_HHlevel/Rdata/", name_year, "_hhweather"))
-save(full, file= paste0("~/scr4-mdavis65/ssola1/HHlevel/Rdata/", name_year, "_hhweather"))
+saveRDS(full, file= paste0("~/data-mdavis65/steven_sola/4_HHlevel/", name_year, "_hhweather.Rdata", version = 3))
+saveRDS(full, file= paste0("~/scr4-mdavis65/ssola1/HHlevel/Rdata/", name_year, "_hhweather.Rdata"))
 
 # Finish message
 cat(paste0("\n", name_year, " has finished processing", "\n"))
+
+rm (list=setdiff(ls(), c("countries", "location")))
+
+}
+
+# Combing HH Files --------------------------------------------------------
+
+# Set the working directory to where the Rdata files are stored
+setwd("~/data-mdavis65/steven_sola/4_HHlevel/Rdata")
+
+# sum(file.info(list.files(".", all.files = T, recursive = T))$size)
+
+# Load in the Rdata files
+hh_files <- list.files(pattern = "*.Rdata", full.names = T)
+
+# Create the resulting dataframe
+hh_combined <- data.frame()
+
+# for the iteration number
+dataset <- 0
+
+for (file in hh_files) {
+  
+  # load the current Rdata file
+  current_file <- readRDS(file)
+  
+  # Print the dataset and iteration number
+  dataset <- dataset + 1
+  
+  cat("\n", "Current file: ", file, "\n",
+      "Iteration number: ", dataset)
+  
+  # Bind the current df to the result df
+  hh_combined <- bind_rows(hh_combined, current_file)
+  
+  # Save the resulting dataframe
+  saveRDS(hh_combined, "~/data-mdavis65/steven_sola/4_HHlevel/combinedhh.Rdata")
+  
+}
+
+
+# Set the working directory to where the Rdata files are stored
+setwd("~/data-mdavis65/steven_sola/4_HHlevel/Rdata")
+
+# Load in the Rdata files
+hh_files <- list.files(pattern = "*.Rdata", full.names = T)
+
+# Read in the files into the environment
+all_data <- lapply(hh_files, readRDS, .GlobalEnv)
+
+# combine all the files together
+hh_combined <- rbindlist(all_data, use.names = T, fill = T)
+
+# Clean the variables that aren't needed
+hh_combined <- hh_combined %>% 
+  select(-starts_with(c("sm", "scweight", "hfs", "sent", "s20", "chl",
+                        "mlweight", "ho", "schweigh", "hd",
+                        "spa", "sus", "sw", "sah", "OBJECTID", "sc", "sv",
+                        "hdis", "sgrad", "sleve", "hvc", "sgam", "sden",
+                        "miil", "elig", "hk", "hy", "he", "sn", "ret",
+                        "sy", "sa", "tpv", "sp", "stest", "hm",
+                        "slquest", "slint", "sltrans", "stot", "ssc", "sl",
+                        "rsc", "hs", "ssy", "sdeath", "seel", "sdhs", "s12", "s21"))) %>% 
+  select(-matches("[s][0-9]{3}", "[hs][0-9]{3}"))
+
+# Take a sample of the hh_combined file
+hh_combined_sample <- hh_combined[sample(nrow(hh_combined), size = 4000, replace = F),]
+
+# Save the files
+saveRDS(hh_combined_sample, "~/data-mdavis65/steven_sola/4_HHlevel/hh_combined_sample.Rdata")
+fwrite(hh_combined_sample, file = "~/data-mdavis65/steven_sola/4_HHlevel/hh_combined_sample.csv")
