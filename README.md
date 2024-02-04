@@ -37,6 +37,8 @@ As a result, to get to the survey, you would have to travel: Senegal --\> SN_929
 
 ## Files
 
+### **Main Folder**
+
 #### ERA5Land.R
 
 The ERA5Land.R file uses the `ecmwfr` package to download weather data to the local machine. This code starts by loading the files that have already been downloaded and "cleaning" the file names so that only the dates remain from the file names.
@@ -45,22 +47,57 @@ After this step, an artificial dataframe is created with the desired dates (in t
 
 The already-downloaded files are compared to this artificial dataset to see which dates have not yet been download. All missing dates are saved to a dataframe, and this dataframe is looped through the `ecmwfr` package to download the data. After each session (as downloading weather data could take a long time), the user is able to pick up again where they started, as the "missing" dates will get updated when the code is re-run.
 
-#### Weather_Extraction_Data.R
+#### Weather_Extraction.R
 
-THis script is designed to load in the survey data and extract the weather data for each cluster on their specific day. This script also assigns the Köppen-Geiger climate classification for each cluster.
+This script is designed to load in the survey data and extract the weather data for each cluster on their specific day. The weather data is taken from the ERA5-Land database, implemented by the European Centre for Medium-Range Weather Forecasts (ECMWF). More information about the weather variables used in this project can be found below, and at [this website](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-land?tab=overview). This script also assigns the Köppen-Geiger climate classification for each cluster.
 
-#### StandardEDA.R
+Accumulation Variables
 
-Work in Progress
+| Variable (short name)      | Explanation                                                                                                                                                                                                  |
+|---------------------------|---------------------------------------------|
+| Total Evaporation (e)      | Accumulated amount of water that has evaporated from the Earth's surface.                                                                                                                                    |
+| Surface Run Off (sro)      | Some water from rainfall, melting snow, or deep in the soil, stays stored in the soil. Otherwise, the water drains away, either over the surface (surface runoff), or under the ground (sub-surface runoff). |
+| Sub-Surface Run Off (ssro) | Some water from rainfall, melting snow, or deep in the soil, stays stored in the soil. Otherwise, the water drains away, either over the surface (surface runoff), or under the ground (sub-surface runoff). |
+| Total Precipitation (tp)   | Accumulated liquid and frozen water, including rain and snow, that falls to the Earth's surface.                                                                                                             |
+
+Instantaneous Variables
+
+| Variable (short name)                      | Explanation                                                                                                                |
+|---------------------------|---------------------------------------------|
+| 2m Temperature (t2m)                       | Temperature of air at 2 meters above the surface of land.                                                                  |
+| Skin Temperature (skt)                     | Temperature at the surface of the Earth.                                                                                   |
+| 2m Dewpoint (d2m)                          | Temperature to which the air, at 2 metres above the surface of the Earth, would have to be cooled for saturation to occur. |
+| Leaf Area Index - low vegetation (lai_lv)  | One-half of the total green leaf area per unit horizontal ground surface area for low vegetation type.                     |
+| Leaf Area Index - high vegetation (lai_hv) | One-half of the total green leaf area per unit horizontal ground surface area for high vegetation type.                    |
 
 #### FileExtension_Cleaning.R
 
 This script is a basic one which ensures all the .DTA file extensions (STATA) are all uppercase. There are some countries in which the file extension is .dta, and the code will not run in these instances, however rare they are.
 
-#### hh_combined.R
-
-Focused only on the household-level files. Cleaning the files and prepping them to be combined at the end. 
-
 #### CodeGraveyard.R
 
-Bits of code that I don't need anymore, but can't seem to get rid of...
+Bits of code that I don't need anymore, but can't seem to get rid of in case I need to use them later.
+
+### **Aim 1**
+
+Aim 1 is focused on water collection labor and its associations with climate variables.
+
+#### Combine_Households.R
+
+This code takes each "hh" (household-level) file and adds in the spatial and wealth variables (if they exist). After that, it loads in the weather data for each specific household/cluster, and creates new variables for each variable for the past 7, 14, 30, and 60 days. For the "accumulation" variables, it creates totals over the time periods, and for the "instantaneous" variables, it creates averages over the time period. See above for which variables belong to each grouping. Finally, it combines all the households together to form the final, uncleaned dataset.
+
+#### Aim1_Cleaning.R
+
+Taking the output from the "Combine_Households.R" file and cleaning the dataset. The main features of this code is focused on the variable "HV201", which is where households get their water for drinking. All 184 surveys used to create my dataset have unique codings for this variable. As a result, I had to write a for_loop that took the codebook for each survey (.MAP file), extracted the coding for each unique HV201, and combined them into a dataframe. That df was then left_joined with my main data so that each household had the correct coding for HV201. After that, I classified each as "improved" and "unimproved" according to the WHO classification scheme. Finally, I separated the dataset until "urban" and "rural" based on the variable "URBAN_RURA".
+
+#### Aim1_EDA_Analysis.R
+
+This code does the exploratory data analysis (EDA) and further analysis for Aim 1.
+
+### **Aim 2**
+
+Aim 1 is focused on prevalence of diarrhea in children under the age of 5 in the household and its associations with animal ownership.
+
+#### Aim2_Cleaning.R
+
+Work in progress...
