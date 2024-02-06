@@ -152,6 +152,11 @@ data_aim1 %>% select(hv201_source, hv201_sourcecat, hv201_improved) %>%
               arrange(hv201_source, hv201_sourcecat, hv201_improved) %>% 
               distinct(hv201_source, hv201_sourcecat, hv201_improved, .keep_all = FALSE)
 
+# Clean Water Walk Variable -----------------------------------------------
+data_aim1 <- data_aim1 %>% mutate(hv204 = case_when(
+                hv204 >= 996 ~ NA_integer_,
+                TRUE ~ hv204))
+
 # Clean Koppen-Geiger -----------------------------------------------------
 
 # Categorize the Koppen-Geiger Climate Classification System into fine details
