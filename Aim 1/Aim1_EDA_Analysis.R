@@ -1,3 +1,36 @@
+# Header ------------------------------------------------------------------
+
+# Load Libraries
+library(tidyverse)
+library(readr)
+library(readxl)
+library(janitor)
+
+# Set the location
+#location <- "personal"
+location <- "HPC"
+
+# Load Libraries
+library(tidyverse)
+
+if (location == "personal") {
+  # Set Working Directory (Personal)
+  setwd("C:/Users/Steven/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data")
+}
+
+if (location == "HPC") { 
+  # Set Working Directory (HPC)
+  setwd("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH")
+}
+
+
+# Read in the full and rural datasets
+data_aim1 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.Rdata")
+rural <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/rural.Rdata")
+
+
+tabyl(data_aim1$kgc_fine) %>% adorn_pct_formatting() %>% flextable::qflextable()
+tabyl(data_aim1$kgc_course)
 
 
 # number of households by year
