@@ -5,13 +5,12 @@ library(tidyverse)
 library(readr)
 library(readxl)
 library(janitor)
+library(flextable)
+library(skimr)
 
 # Set the location
 #location <- "personal"
 location <- "HPC"
-
-# Load Libraries
-library(tidyverse)
 
 if (location == "personal") {
   # Set Working Directory (Personal)
@@ -23,63 +22,88 @@ if (location == "HPC") {
   setwd("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH")
 }
 
-
 # Read in the full and rural datasets
 data_aim1 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.Rdata")
 rural <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/rural.Rdata")
+urban <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/urban.Rdata")
+
+# Households Summary ------------------------------------------------------
+
+# number of households by year
+num_hh_year <- data_aim1 %>%
+                 group_by(hv007) %>%
+                 summarise(num_households = n()) %>%
+                 mutate(Percentage = round((num_households / sum(num_households)) * 100, digits = 2)) %>%
+                 adorn_totals("row") %>%
+                 qflextable() %>% 
+                 set_header_labels(hv007 = "Year", num_households = "Number of HHs")
+
+# Improved vs. Unimproved -------------------------------------------------
+
+# counting the improved/unimproved across the three populations
+data_aim1 %>% tabyl(hv201_improved) %>% adorn_pct_formatting() %>% qflextable() %>% 
+               set_header_labels(hv201_improved = "Type of Source", n = "Number of HHs") %>% 
+               width(width = 1)
+               
+rural %>% tabyl(hv201_improved) %>% adorn_pct_formatting() %>% qflextable() %>% 
+               set_header_labels(hv201_improved = "Type of Source", n = "Number of HHs") %>% 
+               width(width = 1)
+
+urban %>% tabyl(hv201_improved) %>% adorn_pct_formatting() %>% qflextable() %>% 
+               set_header_labels(hv201_improved = "Type of Source", n = "Number of HHs") %>% 
+               width(width = 1)
+               
+# Water Walk Times --------------------------------------------------------
+
+# Datasets for the for loop
+datasets <- list(full_data=data_aim1, rural=rural, urban=urban)
+
+# 0 Water Collection Times
+for (ii in names(datasets)) {
+cat("There are", nrow(datasets[[ii]] %>% filter(hv204 == 0)),"Households with 0 collection times in", ii, "\n")
+}
+
+# Missing Water Collection Times
+for (ii in names(datasets)) {
+cat("There are", nrow(datasets[[ii]] %>% filter(is.na(hv204))),"Households with missing collection times in", ii, "\n")
+}
+
+# Filter out missings and those with 0 walk times,
+# As well as 995, which indicates more than 1 day to water
+data_aim1 <- data_aim1 %>% filter(!is.na(hv204), hv204 != 0, hv204 != 995)
+rural <- rural %>% filter(!is.na(hv204), hv204 != 0, hv204 != 995)
+urban <- urban %>% filter(!is.na(hv204), hv204 != 0, hv204 != 995)
+
+# Check to make sure all 996, 0, and missings have been filtered
+data_aim1 %>% skim(hv204) %>% qflextable()
+skim(rural$hv204)
+skim(urban$hv204)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 tabyl(data_aim1$kgc_fine) %>% adorn_pct_formatting() %>% flextable::qflextable()
 tabyl(data_aim1$kgc_course)
 
 
-# number of households by year
-num_hh_year <- data %>% 
-  group_by(hv007) %>%
-  dplyr::summarise(
-    "num_households" = n())
-
-# Read in the rural and urban datasets
-rural <- readRDS("~/data-mdavis65/steven_sola/4_HHlevel/rural.Rdata")
-urban <- readRDS("~/data-mdavis65/steven_sola/4_HHlevel/urban.Rdata")
-
-# counting the improved/unimproved across the three populations
-table(rural$hv201_improved, useNA = "always")
-table(urban$hv201_improved, useNA = "always")
-table(data$hv201_improved, useNA = "always")
-
-
-table(data$hv204)
 
 
 
 
-# Set all numbers above 996 as Missings
-data$hv204 <- if_else(data$hv204 >= 996, NA, data$hv204)
-rural$hv204 <- if_else(rural$hv204 >= 996, NA, rural$hv204)
-urban$hv204 <- if_else(urban$hv204 >= 996, NA, urban$hv204)
 
-# 995 = one day or longer
-# 996 = on premises
 
-# Filter out all those missing, have on premise plumbing, or with 0 collection times
-cat("There are", nrow(data) - nrow(data %>% filter(!is.na(hv204), hv204 != 0)), 
-    "missing values, have on premise plumbing, or with 0 collection times")
 
-cat("There are", nrow(rural) - nrow(rural %>% filter(!is.na(hv204), hv204 != 0)), 
-    "missing values, have on premise plumbing, or with 0 collection times")
 
-cat("There are", nrow(urban) - nrow(urban %>% filter(!is.na(hv204), hv204 != 0)), 
-    "missing values, have on premise plumbing, or with 0 collection times")
-
-data <-  data %>% filter(!is.na(hv204), hv204 != 0)
-rural <-  rural %>% filter(!is.na(hv204), hv204 != 0)
-urban <-  urban %>% filter(!is.na(hv204), hv204 != 0)
-
-# Check to make sure all 996, 0, and missings have been filtered
-skim(data$hv204)
-skim(rural$hv204)
-skim(urban$hv204)
 
 # Filter out those with piped water
 rural_nopipe <- rural %>% filter(hv201_sourcecat != "Piped")
