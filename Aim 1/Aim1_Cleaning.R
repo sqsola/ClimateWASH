@@ -4,6 +4,8 @@
 library(tidyverse)
 library(readr)
 library(readxl)
+library(janitor)
+library(flextable)
 
 # Set the location
 #location <- "personal"
@@ -22,6 +24,19 @@ if (location == "HPC") {
   setwd("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH")
 }
 
+# Read in the full dataset that combined all households
+data_aim1 <- readRDS("~/data-mdavis65/steven_sola/4_HHlevel/hh_combined.Rdata")
+
+# Clean HV007 (Year) ------------------------------------------------------
+
+# Change the "Year 1" to 2001 (GA_00 dataset)
+# Change the "Year 0" to 2000 (GA_00 dataset)
+# Change the two digit years into four digits by adding 1900
+data_aim1 <- data_aim1 %>% mutate(hv007 = case_when(
+                             hv007 == 1   ~ 2001,
+                             hv007 == 0   ~ 2000,
+                             hv007 < 100  ~ hv007+1900,
+                             TRUE ~ hv007))
 
 # HV201 Source ------------------------------------------------------------
 
@@ -89,7 +104,7 @@ if(name_year == "CI_9899") {
 codebook[[i]] <- water_source
 
 # Remove everything except two objects to save on memory costs
-rm(list = setdiff(ls(), c("countries", "codebook")))
+rm(list = setdiff(ls(), c("countries", "codebook", "data_aim1")))
 }
 
 # bind all the DFs generated together
@@ -99,8 +114,7 @@ codebook <- do.call(rbind, codebook)
 codebook <- codebook %>% mutate(
                 hv201_source = if_else(hv201_source == 96, "Other", hv201_source))
 
-# Read in the full dataset
-data_aim1 <- readRDS("~/data-mdavis65/steven_sola/4_HHlevel/hh_combined.Rdata")
+# Clean HV201 Source ------------------------------------------------------
 
 # Set the code in the codebook to numeric to match the full dataset
 codebook$code <- as.numeric(codebook$code)
@@ -109,33 +123,63 @@ codebook$code <- as.numeric(codebook$code)
 data_aim1 <- data_aim1 %>% left_join(codebook, by = join_by(name_year, hv201 == code))
 
 # Categorize the source of the water. 
-data_aim1 <- data_aim1 %>% 
-                mutate(hv201_sourcecat = if_else(str_detect(hv201_source, "(river|River)"), "River", 
-                                         if_else(str_detect(hv201_source, "(Open|open|not|Unprotected|unprotected|fountain|Non|land|^Public water$)"), "Unprotected",
-                                         if_else(str_detect(hv201_source, "(Covered|covered|Protected|protected|Improved)"), "Protected",
-                                         if_else(str_detect(hv201_source, "(Piped|pipe|tap|Tap|faucet)"), "Piped",
-                                         if_else(str_detect(hv201_source, "(Borehole|Barehole|borehole|Borehl|stand|bore hole|Manual|Tube|Drilling)"), "Borehole",
-                                         if_else(str_detect(hv201_source, "(Piped|pipe|tap|Tap|house|courtyard)"), "Piped",
-                                         if_else(str_detect(hv201_source, "(Well|well)"), "Well",
-                                         if_else(str_detect(hv201_source, "(Spring|^Other spring$)"), "Spring",
-                                         if_else(str_detect(hv201_source, "(Sachet|sachet|Water bag|Bag water|plastic bag|Satchel)"), "Sachet",
-                                         if_else(str_detect(hv201_source, "(Lake|lake|Dam|Resevoir|Dugout|Canal|Gravity|road|Forage|cesspool|Irrigation|surface)"), "Surface water",
-                                         if_else(str_detect(hv201_source, "(Vendor|vendor|Purchased|Tanker|TANKER|tanker|Bicycle|Motorcycle|Cart|vender|station|merchant|seller|Arranged)"), "Vendor",
-                                         if_else(str_detect(hv201_source, "(rainwater|Rainwater|Rain-water|RAINWATER|rain water)"), "Rainwater",
-                                         if_else(str_detect(hv201_source, "(other|Other|OTHER)"), "Other",
-                                         if_else(str_detect(hv201_source, "(Neighbor|Neighbour|neighbor|Naighbor)"), "Piped", hv201_source)))))))))))))))
+data_aim1 <- data_aim1 %>% mutate(hv201_sourcecat = case_when(
+                              str_detect(hv201_source, "(river|River)") ~ "River",
+                              str_detect(hv201_source, "(Open|open|not|Unprotected|unprotected|fountain|Non|land|^Public water$)") ~ "Unprotected",
+                              str_detect(hv201_source, "(Covered|covered|Protected|protected|Improved)") ~ "Protected",
+                              str_detect(hv201_source, "(Piped|pipe|tap|Tap|faucet)") ~ "Piped",
+                              str_detect(hv201_source, "(Borehole|Barehole|borehole|Borehl|stand|bore hole|Manual|Tube|Drilling)") ~ "Borehole",
+                              str_detect(hv201_source, "(Piped|pipe|tap|Tap|house|courtyard)") ~ "Piped",
+                              str_detect(hv201_source, "(Well|well)") ~ "Well",
+                              str_detect(hv201_source, "(Spring|^Other spring$)") ~ "Spring",
+                              str_detect(hv201_source, "(Sachet|sachet|Water bag|Bag water|plastic bag|Satchel)") ~ "Sachet",
+                              str_detect(hv201_source, "(Lake|lake|Dam|Resevoir|Dugout|Canal|Gravity|road|Forage|cesspool|Irrigation|surface)") ~ "Surface water",
+                              str_detect(hv201_source, "(Vendor|vendor|Purchased|Tanker|TANKER|tanker|Bicycle|Motorcycle|Cart|vender|station|merchant|seller|Arranged)") ~ "Vendor",
+                              str_detect(hv201_source, "(rainwater|Rainwater|Rain-water|RAINWATER|rain water)") ~ "Rainwater",
+                              str_detect(hv201_source, "(other|Other|OTHER)") ~ "Other",
+                              str_detect(hv201_source, "(Neighbor|Neighbour|neighbor|Naighbor)") ~ "Piped",
+                              TRUE ~ hv201_source))
             
 # Categorize the source of the water. 
-data_aim1 <- data_aim1 %>%
-                 mutate(hv201_improved = case_when(
-                            hv201_sourcecat %in% c("Unprotected", "Vendor", "River", "Bottled water",
-                                                   "Surface water", "Spring", "Sachet", "Well") ~ "Unimproved",
-                            hv201_sourcecat %in% c("Protected", "Borehole", "Piped", "Rainwater") ~ "Improved",
-                            TRUE ~ "UNKNOWN"))
-
+data_aim1 <- data_aim1 %>% mutate(hv201_improved = case_when(
+                              hv201_sourcecat %in% c("Unprotected", "Vendor", "River", "Bottled water",
+                                                     "Surface water", "Spring", "Sachet", "Well") ~ "Unimproved",
+                              hv201_sourcecat %in% c("Protected", "Borehole", "Piped", "Rainwater") ~ "Improved",
+                              TRUE ~ "UNKNOWN"))
+      
 # Check the coding
-data_aim1 %>% select(hv201_source, hv201_sourcecat, hv201_improved) %>% arrange(hv201_source, hv201_sourcecat, hv201_improved) %>% 
-         distinct(hv201_source, hv201_sourcecat, hv201_improved, .keep_all = FALSE)
+data_aim1 %>% select(hv201_source, hv201_sourcecat, hv201_improved) %>% 
+              arrange(hv201_source, hv201_sourcecat, hv201_improved) %>% 
+              distinct(hv201_source, hv201_sourcecat, hv201_improved, .keep_all = FALSE)
+
+# Clean Koppen-Geiger -----------------------------------------------------
+
+# Categorize the Koppen-Geiger Climate Classification System into fine details
+data_aim1 <- data_aim1 %>% mutate(kgc_fine = case_when(
+                              kgc == "Af"  ~ "Tropical Rainforest",
+                              kgc == "Am"  ~ "Tropical Monsoon",
+                              kgc == "As"  ~ "Tropical Savanna, Dry Summer",
+                              kgc == "Aw"  ~ "Tropical Savanna Dry Winter",
+                              kgc == "BSh" ~ "Dry Semi-Arid Hot",
+                              kgc == "BSk" ~ "Dry Semi-Arid Cold",
+                              kgc == "BWh" ~ "Dry Arid Hot",
+                              kgc == "BWk" ~ "Dry Arid Desert Cold",
+                              kgc == "Cfa" ~ "Temperate No Dry Season Hot Summer",
+                              kgc == "Cfb" ~ "Temperate No Dry Season Warm Summer",
+                              kgc == "Csa" ~ "Temperate Dry Summer Hot Summer",
+                              kgc == "Csb" ~ "Temperate Dry Summer Warm Summer",
+                              kgc == "Cwa" ~ "Temperate Dry Winter Hot Summer",
+                              kgc == "Cwb" ~ "Temperate Dry Winter Warm Summer",
+                              kgc == "Climate Zone info missing" ~ NA_character_,
+                              TRUE ~ NA_character_))
+
+# Categorize the Koppen-Geiger Climate Classification System into course details
+data_aim1 <- data_aim1 %>% mutate(kgc_course = case_when(
+                              kgc %in% c("Af", "Am", "As", "Aw") ~ "Tropical",
+                              kgc %in% c("BSh", "BSk", "BWh", "BWk") ~ "Dry",
+                              kgc %in% c("Cfa", "Cfb", "Csa", "Cwa", "Cwb") ~ "Temperate",
+                              kgc == "Climate Zone info missing" ~ NA_character_,
+                              TRUE ~ NA_character_))
 
 # Separate the data between Rural and Urban
 cat("There are", nrow(data_aim1 %>% filter(URBAN_RURA == "R")), "rural households")
@@ -143,7 +187,7 @@ cat("There are", nrow(data_aim1 %>% filter(URBAN_RURA == "U")), "urban household
 cat("There are", nrow(data_aim1 %>% filter(is.na(URBAN_RURA))), "households with missing U/R data")
 
 # Save the full dataset
-saveRDS(data_aim1, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1wsource.Rdata")
+saveRDS(data_aim1, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.Rdata")
 
 # Save the rural dataset
 rural <- data_aim1 %>% filter(URBAN_RURA == "R")
