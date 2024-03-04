@@ -1,12 +1,16 @@
 # Header ------------------------------------------------------------------
 
 # Load Libraries
-library(tidyverse)
 library(readr)
 library(readxl)
 library(janitor)
 library(flextable)
 library(skimr)
+library(corrr)
+library(corrplot)
+library(lmerTest)
+library(multilevelTools)
+library(tidyverse)
 
 # Set the location
 #location <- "personal"
@@ -30,13 +34,13 @@ urban <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/urban.
 # Households Summary ------------------------------------------------------
 
 # number of households by year
-num_hh_year <- data_aim1 %>%
-                 group_by(hv007) %>%
-                 summarise(num_households = n()) %>%
-                 mutate(Percentage = round((num_households / sum(num_households)) * 100, digits = 2)) %>%
-                 adorn_totals("row") %>%
-                 qflextable() %>% 
-                 set_header_labels(hv007 = "Year", num_households = "Number of HHs")
+data_aim1 %>%
+  group_by(hv007) %>%
+  summarise(num_households = n()) %>%
+  mutate(Percentage = round((num_households / sum(num_households)) * 100, digits = 2)) %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(hv007 = "Year", num_households = "Number of HHs")
 
 # Improved vs. Unimproved -------------------------------------------------
 
@@ -74,289 +78,183 @@ data_aim1 <- data_aim1 %>% filter(!is.na(hv204), hv204 != 0, hv204 != 995)
 rural <- rural %>% filter(!is.na(hv204), hv204 != 0, hv204 != 995)
 urban <- urban %>% filter(!is.na(hv204), hv204 != 0, hv204 != 995)
 
-# Check to make sure all 996, 0, and missings have been filtered
-data_aim1 %>% skim(hv204) %>% qflextable()
-skim(rural$hv204)
-skim(urban$hv204)
+# Summary tables for Water walk times
+data_aim1 %>% skim(hv204) %>% qflextable()%>% 
+  width(width = 0.8)
+rural %>% skim(hv204) %>% qflextable() %>% 
+  width(width = 0.8)
+urban %>% skim(hv204) %>% qflextable() %>% 
+  width(width = 0.8)
 
 
+# HH with GPS -------------------------------------------------------------
+for (ii in names(datasets)) {
+  cat("There are", nrow(datasets[[ii]] %>% filter(!is.na(LATNUM))),"Households with GPS Coords", ii, "\n")
+}
 
+# Koppen-Geiger Zones -----------------------------------------------------
 
+data_aim1 %>% tabyl(kgc_fine) %>% adorn_pct_formatting() %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(kgc_fine = "KG Zone", n = "Number of HHs",
+                    percent = "Total Percent", valid_percent = "Percent among Non-Missing")
 
+data_aim1 %>% tabyl(kgc_course) %>% adorn_pct_formatting() %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(kgc_course = "KG Zone", n = "Number of HHs",
+                    percent = "Total Percent", valid_percent = "Percent among Non-Missing")
 
+rural %>% tabyl(kgc_fine) %>% adorn_pct_formatting() %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(kgc_fine = "KG Zone", n = "Number of HHs",
+                    percent = "Total Percent", valid_percent = "Percent among Non-Missing")
 
+rural %>% tabyl(kgc_course) %>% adorn_pct_formatting() %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(kgc_course = "KG Zone", n = "Number of HHs",
+                    percent = "Total Percent", valid_percent = "Percent among Non-Missing")
 
+urban %>% tabyl(kgc_fine) %>% adorn_pct_formatting() %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(kgc_fine = "KG Zone", n = "Number of HHs",
+                    percent = "Total Percent", valid_percent = "Percent among Non-Missing")
 
+urban %>% tabyl(kgc_course) %>% adorn_pct_formatting() %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(kgc_course = "KG Zone", n = "Number of HHs",
+                    percent = "Total Percent", valid_percent = "Percent among Non-Missing")
 
+                    
 
-
-
-
-tabyl(data_aim1$kgc_fine) %>% adorn_pct_formatting() %>% flextable::qflextable()
-tabyl(data_aim1$kgc_course)
-
-
-
-
-
-
-
-
-
-
+# Correlation Graphs ----------------------------------------------------------------
 
 # Filter out those with piped water
+dataaim1_nopipe <- data_aim1 %>% filter(hv201_sourcecat != "Piped")
 rural_nopipe <- rural %>% filter(hv201_sourcecat != "Piped")
 urban_nopipe <- urban %>% filter(hv201_sourcecat != "Piped")
-data_nopipe <- data %>% filter(hv201_sourcecat != "Piped")
 
-cor(rural_nopipe$hv204, rural_nopipe$tp_totalminus14, use = "pairwise.complete.obs")
-cor(rural_nopipe$hv204, rural_nopipe$tp_totalminus30, use = "pairwise.complete.obs")
-cor(rural_nopipe$hv204, rural_nopipe$tp_totalminus60, use = "pairwise.complete.obs")
-
-cor(rural_nopipe$hv204, rural_nopipe$sro_totalminus14, use = "pairwise.complete.obs")
-cor(rural_nopipe$hv204, rural_nopipe$sro_totalminus30, use = "pairwise.complete.obs")
-cor(rural_nopipe$hv204, rural_nopipe$sro_totalminus60, use = "pairwise.complete.obs")
-
-cor(urban_nopipe$hv204, urban_nopipe$tp_totalminus14, use = "pairwise.complete.obs")
-cor(urban_nopipe$hv204, urban_nopipe$tp_totalminus30, use = "pairwise.complete.obs")
-cor(urban_nopipe$hv204, urban_nopipe$tp_totalminus60, use = "pairwise.complete.obs")
-
-cor(urban_nopipe$hv204, urban_nopipe$sro_totalminus14, use = "pairwise.complete.obs")
-cor(urban_nopipe$hv204, urban_nopipe$sro_totalminus30, use = "pairwise.complete.obs")
-cor(urban_nopipe$hv204, urban_nopipe$sro_totalminus60, use = "pairwise.complete.obs")
-
-cor(data_nopipe$hv204, data_nopipe$tp_totalminus14, use = "pairwise.complete.obs")
-cor(data_nopipe$hv204, data_nopipe$tp_totalminus30, use = "pairwise.complete.obs")
-cor(data_nopipe$hv204, data_nopipe$tp_totalminus60, use = "pairwise.complete.obs")
-
-cor(data_nopipe$hv204, data_nopipe$sro_totalminus14, use = "pairwise.complete.obs")
-cor(data_nopipe$hv204, data_nopipe$sro_totalminus30, use = "pairwise.complete.obs")
-cor(data_nopipe$hv204, data_nopipe$sro_totalminus60, use = "pairwise.complete.obs")
-
-
-
-
-
-
-
-
-
-
-
-library(ggplot2)
-
-plot_rural <- ggplot(rural, aes(x=hv204)) + 
-  geom_line(aes(y = tp_totalminus30), color = "steelblue") + 
-  geom_line(aes(y = e_totalminus30), color="darkred") +
-  xlab("Time to Collect Water") + ylab("Inches in the Previous Month") +
-  scale_x_continuous(expand = c(0,0), limits = c(0,300)) +
-  scale_y_continuous(expand = c(0,0), limits = c(-0.3,3)) +
-  theme(axis.text = element_text (size = 14, face = "bold")) +
-  theme(axis.title = element_text(size = 14, face = "bold")) 
-
-plot_rural
-
-
-rural$e_avgminus30
-
-
-
-
-library(ggplot2)
-
-plot_dry <- ggplot(dry, aes(x=hv204)) + 
-  geom_line(aes(y = precip_minus1mototal_inchday), color = "steelblue") + 
-  geom_line(aes(y = evap_minus1mototal_inchday), color="darkred") +
-  xlab("Time to Collect Water") + ylab("Inches in the Previous Month") +
-  scale_x_continuous(expand = c(0,0), limits = c(0,300)) +
-  scale_y_continuous(expand = c(0,0), limits = c(-0.1,18)) +
-  theme(axis.text = element_text (size = 14, face = "bold")) +
-  theme(axis.title = element_text(size = 14, face = "bold")) 
-
-plot_dry
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# See if the amount of piped water changes by the year of the survey
-test <- rural_pipe_nona %>% 
-  group_by(hv007) %>%
-  dplyr::summarise(
-    "num_households" = n(),
-    across(piped, list(Yes = ~ sum(. == "Piped"),
-                       No  = ~ sum(. == "Not Piped"))))
-test$Percent_Piped <- (test$piped_Yes / test$num_households) * 100
-test
-
-# Filter out people who have immediate access to water
-rural_pipe <- rural %>% filter(!between(hv201, 11, 14)) %>% 
-  filter(!hv201 >= 61)
-
-piped_water <- rural %>% filter(between(hv201, 11, 14))
-tanker <- rural %>% filter(hv201 >= 61)
-
-table(rural_pipe$hv201)
-
-
-
-
-# Count the number of PSUs
-rural_final %>% group_by(hv001) %>% dplyr::summarise(num_psu = n()) %>% dplyr::summarise(sum_psu = max(hv001))
-
-
-
-
-# Categorize the Climate Zones
-rural_final <- rural_final %>% mutate(ClimateZ_2 = ifelse(ClimateZ == "As" | ClimateZ == "Aw", "Tropical", 
-                                                          ifelse(ClimateZ == "BSh" | ClimateZ == "BWh", "Dry", "000")))
-
-
-# number of breakdown for people fetching water.
-table(rural_final$hv236)
-
-# describe walk time
-psych::describe(rural$hv204)
-psych::describeBy(rural_final$hv204, rural_final$hv236)
-
-# find number of households per hv001
-test <- rural_final %>% group_by(hv001, hv000) %>% 
-  dplyr::summarise(num_households = mean(n()))
-
-mean(test$num_households)
-
-# Table of Main results
-rural_final %>% group_by(hv007) %>% 
-  dplyr::summarise(mean_evap_60day_inch = mean(evap_overalltotal_inchday, na.rm = TRUE),
-                   mean_precip_60day_inch = mean(precip_overalltotal_inchday),
-                   mean_evap_30day_inch = mean(evap_minus1mototal_inchday, na.rm = TRUE),
-                   mean_precip_30day_inch = mean(precip_minus1mototal_inchday),
-                   mean_walk_minutes = mean(hv204),
-                   num_households = n())
-
-
-
-rural_final %>% group_by(hv007) %>% 
-  dplyr::summarise(mean_evap_60day_inch = mean(evap_overalltotal_inchday, na.rm = TRUE),
-                   mean_precip_60day_inch = mean(precip_overalltotal_inchday),
-                   mean_evap_30day_inch = mean(evap_minus1mototal_inchday, na.rm = TRUE),
-                   mean_precip_30day_inch = mean(precip_minus1mototal_inchday),
-                   mean_walk_minutes = mean(hv204),
-                   num_households = n())
-
-
-
-
-
-
-test <- rural_final %>% group_by(hv007, monthinterview) %>% 
-  dplyr::summarise(mean_evap_60day_inch = mean(evap_overalltotal_inchday, na.rm = TRUE),
-                   mean_precip_60day_inch = mean(precip_overalltotal_inchday),
-                   mean_evap_30day_inch = mean(evap_minus1mototal_inchday, na.rm = TRUE),
-                   mean_precip_30day_inch = mean(precip_minus1mototal_inchday),
-                   mean_walk_minutes = mean(hv204),
-                   num_households = n())
-
-
-write.csv(test, "test.csv")
-
-# Categorize the Climate Zones and do chi sq on walk times in climate zones
-climate_walk <- rural_final %>% select(hv204, ClimateZ, hhid)
-
-climate_walk <- climate_walk %>% 
-  mutate(ClimateZ_2 = ifelse(ClimateZ == "As" | ClimateZ == "Aw", "Tropical", 
-                             ifelse(ClimateZ == "BSh" | ClimateZ == "BWh", "Dry", "000")))
-
-table(climate_walk$ClimateZ, climate_walk$ClimateZ_2)
-
-psych::describeBy(climate_walk$hv204, climate_walk$ClimateZ_2)
-
-chisq <- climate_walk %>% filter(ClimateZ_2 != "000")
-
-chisq.test(chisq$ClimateZ_2, chisq$hv204, simulate.p.value = TRUE)
-
-# Person fetching water
-table(rural_final$hv236)
-
-rural_final %>% group_by(hv236) %>% 
-  dplyr::summarise(mean_evap_total = mean(evap_overalltotal_inchday),
-                   mean_precip_total = mean(precip_overalltotal_inchday),
-                   mean_precip_minus1 = mean(precip_minus1mototal_inchday),
-                   mean_walk = mean(hv204),
-                   num_households = n())
-
-rural_final %>% filter(hv236 > 4 | is.na(hv236)) %>% 
-  dplyr::summarise(mean_walk = mean(hv204),
-                   num_households = n())
-
-
-## FOR MAPPING
-
-mapping <- rural_final %>% select(ID, LONGNUM, LATNUM)
-
-mapping <- unique(mapping[c("LATNUM", "LONGNUM")])
-
-mapping$ID <- NA
-
-mapping$ID <- seq(1:nrow(mapping))
-
-write.csv(mapping, "mappingforposter.csv")
-
-# Special Dataset ||||||| CLEAN LATER
-dry <- rural_final %>% filter(ClimateZ_2 == "Dry")
-
-tropical <- rural_final %>% filter(ClimateZ_2 == "Tropical")
-
-## correlation between walk and precipitation in preceding 1 month
-cor(dry$hv204, dry$precip_minus1mototal_inchday, method = "kendall")
-cor(tropical$hv204, tropical$precip_minus1mototal_inchday, method = "kendall")
-
-## correlation between walk and evaporation in preceding 1 month
-cor(dry$hv204, dry$evap_minus1mototal_inchday, method = "kendall", use = "complete.obs")
-cor(tropical$hv204, tropical$evap_minus1mototal_inchday, method = "kendall", use = "complete.obs")
-
-library(ggplot2)
-
-plot_dry <- ggplot(dry, aes(x=hv204)) + 
-  geom_line(aes(y = precip_minus1mototal_inchday), color = "steelblue") + 
-  geom_line(aes(y = evap_minus1mototal_inchday), color="darkred") +
-  xlab("Time to Collect Water") + ylab("Inches in the Previous Month") +
-  scale_x_continuous(expand = c(0,0), limits = c(0,300)) +
-  scale_y_continuous(expand = c(0,0), limits = c(-0.1,18)) +
-  theme(axis.text = element_text (size = 14, face = "bold")) +
-  theme(axis.title = element_text(size = 14, face = "bold")) 
-
-plot_dry
-
-plot_tropical <- ggplot(tropical, aes(x=hv204)) + 
-  geom_line(aes(y = precip_minus1mototal_inchday), color = "steelblue") + 
-  geom_line(aes(y = evap_minus1mototal_inchday), color="darkred") +
-  xlab("Time to Collect Water") + ylab("Inches in the Previous Month") +
-  scale_x_continuous(expand = c(0,0), limits = c(0,275)) +
-  scale_y_continuous(expand = c(0,0), limits = c(-0.1,29)) +
-  theme(axis.text = element_text (size = 14, face = "bold")) +
-  theme(axis.title = element_text(size = 14, face = "bold")) 
-
-plot_tropical
-
-
-
-#### MODELING
-
-model <- lmer(hv204 ~ precip_minus1mototal_inchday + (1 | ClimateZ), data=rural_final)
+# Correlation for full data
+cor_dataaim1 <- dataaim1_nopipe %>% select(hv204,
+                                      e_totalminus7, e_totalminus14, e_totalminus30, e_totalminus60,
+                                      tp_totalminus7, tp_totalminus14, tp_totalminus30, tp_totalminus60,
+                                      sro_totalminus7, sro_totalminus14, sro_totalminus30, sro_totalminus60,
+                                      ssro_totalminus7, ssro_totalminus14, ssro_totalminus30, ssro_totalminus60,
+                                      t2m_avgminus7, t2m_avgminus14, t2m_avgminus30, t2m_avgminus60,
+                                      skt_avgminus7, skt_avgminus14, skt_avgminus30, skt_avgminus60,
+                                      lai_lv_avgminus7, lai_lv_avgminus14, lai_lv_avgminus30, lai_lv_avgminus60,
+                                      lai_hv_avgminus7, lai_hv_avgminus14, lai_hv_avgminus30, lai_hv_avgminus60,
+                                      d2m_avgminus7, d2m_avgminus14, d2m_avgminus30, d2m_avgminus60)
+          
+x <- cor_dataaim1 %>% 
+        correlate() %>% 
+        focus(hv204)
+
+x %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
+      mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
+      ggplot(aes(x = term, y = hv204)) + 
+      geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
+      ylab("Correlation with Water Walk Time (HV204)") + 
+      xlab("Variable") +
+      scale_x_discrete(guide = guide_axis(angle = 30)) +
+      scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+      
+
+# Correlation for rural data
+cor_rural <- rural_nopipe %>% select(hv204,
+                                e_totalminus7, e_totalminus14, e_totalminus30, e_totalminus60,
+                                tp_totalminus7, tp_totalminus14, tp_totalminus30, tp_totalminus60,
+                                sro_totalminus7, sro_totalminus14, sro_totalminus30, sro_totalminus60,
+                                ssro_totalminus7, ssro_totalminus14, ssro_totalminus30, ssro_totalminus60,
+                                t2m_avgminus7, t2m_avgminus14, t2m_avgminus30, t2m_avgminus60,
+                                skt_avgminus7, skt_avgminus14, skt_avgminus30, skt_avgminus60,
+                                lai_lv_avgminus7, lai_lv_avgminus14, lai_lv_avgminus30, lai_lv_avgminus60,
+                                lai_hv_avgminus7, lai_hv_avgminus14, lai_hv_avgminus30, lai_hv_avgminus60,
+                                d2m_avgminus7, d2m_avgminus14, d2m_avgminus30, d2m_avgminus60)
+
+x <- cor_rural %>% 
+       correlate() %>% 
+       focus(hv204)
+
+x %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
+      mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
+      ggplot(aes(x = term, y = hv204)) + 
+      geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
+      ylab("Correlation with Water Walk Time (HV204)") + 
+      xlab("Variable") +
+      scale_x_discrete(guide = guide_axis(angle = 30)) +
+      scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+
+
+# Correlation for urban data
+cor_urban <- urban_nopipe %>% select(hv204,
+                                e_totalminus7, e_totalminus14, e_totalminus30, e_totalminus60,
+                                tp_totalminus7, tp_totalminus14, tp_totalminus30, tp_totalminus60,
+                                sro_totalminus7, sro_totalminus14, sro_totalminus30, sro_totalminus60,
+                                ssro_totalminus7, ssro_totalminus14, ssro_totalminus30, ssro_totalminus60,
+                                t2m_avgminus7, t2m_avgminus14, t2m_avgminus30, t2m_avgminus60,
+                                skt_avgminus7, skt_avgminus14, skt_avgminus30, skt_avgminus60,
+                                lai_lv_avgminus7, lai_lv_avgminus14, lai_lv_avgminus30, lai_lv_avgminus60,
+                                lai_hv_avgminus7, lai_hv_avgminus14, lai_hv_avgminus30, lai_hv_avgminus60,
+                                d2m_avgminus7, d2m_avgminus14, d2m_avgminus30, d2m_avgminus60)
+    
+x <- cor_urban %>% 
+       correlate() %>% 
+       focus(hv204)
+
+x %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
+      mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
+      ggplot(aes(x = term, y = hv204)) + 
+      geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
+      ylab("Correlation with Water Walk Time (HV204)") + 
+      xlab("Variable") +
+      scale_x_discrete(guide = guide_axis(angle = 30)) +
+      scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+
+
+# Interaction Assessment -------------------------------------------------
+
+
+
+
+
+
+# Modeling ----------------------------------------------------------------
+model <- lmer(log(hv204) ~ tp_totalminus30 + e_totalminus30 + sro_totalminus30 + skt +   
+                (1|name_year/hv001), data = rural_nopipe)
 model
 summary(model)
+
+
+rural_nopipe %>% ggplot(aes(x = hv204)) + geom_density()
+qqnorm(rural_nopipe$hv204, pch = 1)
+qqline(rural_nopipe$hv204, col = "red", lwd = 3)
+  
+
+rural_nopipe %>% ggplot(aes(x = log(hv204))) + geom_density()
+qqnorm(log(rural_nopipe$hv204), pch = 1)
+qqline(log(rural_nopipe$hv204), col = "red", lwd = 3)
+
+
+
+
+plot(model, resid(., scaled=TRUE) ~ fitted(.), abline = 0, pch = 16, xlab = "Fitted Values", ylab = "Standard Resid")
+
+qqnorm(resid(model), pch = 16)
+qqline(resid(model))
+
+
+
+plot(model)
+
+qqnorm(residuals(model))
+
+qqnorm(rural_nopipe$hv204)
+
+cor(rural_nopipe$skt, rural_nopipe$t2m, use = "pairwise.complete.obs")
 
