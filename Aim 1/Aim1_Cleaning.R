@@ -1,19 +1,16 @@
 # Header ------------------------------------------------------------------
 
 # Load Libraries
-library(tidyverse)
 library(readr)
-library(readxl)
 library(janitor)
 library(flextable)
+library(tidyverse)
 
 # Set the location
 #location <- "personal"
 location <- "HPC"
 
-# Load Libraries
-library(tidyverse)
-
+# Set the working directories
 if (location == "personal") {
   # Set Working Directory (Personal)
   setwd("C:/Users/Steven/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data")
@@ -41,7 +38,7 @@ data_aim1 <- data_aim1 %>% mutate(hv007 = case_when(
 # HV201 Source ------------------------------------------------------------
 
 # Read in the file that lists all countries
-countries <- read_excel("Country_Index_HPC.xlsx") 
+source("countries.R") 
 
 # Create a list to bind all the DFs together at the end.
 codebook <- list()
@@ -103,6 +100,9 @@ if(name_year == "CI_9899") {
 # Save all the df together to bind together
 codebook[[i]] <- water_source
 
+# Print the name that is finished
+print(paste0(name_year, " has finished processing"))
+
 # Remove everything except two objects to save on memory costs
 rm(list = setdiff(ls(), c("countries", "codebook", "data_aim1")))
 }
@@ -152,10 +152,87 @@ data_aim1 %>% select(hv201_source, hv201_sourcecat, hv201_improved) %>%
               arrange(hv201_source, hv201_sourcecat, hv201_improved) %>% 
               distinct(hv201_source, hv201_sourcecat, hv201_improved, .keep_all = FALSE)
 
+# HV236 Person Collecting -------------------------------------------------
+
+# Get the name_years of the surveys that collected hv236 data
+to_extract <- data_aim1 %>% 
+              filter(!is.na(hv236)) %>% 
+              distinct(name_year)
+
+# Semi join it to the list of countries to get the country names easily
+to_extract <- semi_join(countries, to_extract)
+
+# Create a list to bind all the DFs together at the end.
+codebook <- list()
+
+# Start of for_loop
+for (i in 1:nrow(to_extract)){
+
+country <- to_extract$country[i]
+name_year <- to_extract$name_year[i]
+
+# Set the working directory to the specific country  
+setwd(paste0("~/data-mdavis65/steven_sola/", country,"/",name_year,"/",name_year,"_hh"))
+
+# Read in survey data (Household member)
+files <- list.files(getwd(), pattern="(\\.MAP|\\.map)", recursive = TRUE)
+
+# Set the locale for the files (helps with reading in weird formatting)
+locale <- locale(encoding = "latin1")
+
+# Read in the codebook files
+person_collect <- read_csv(files, show_col_types = F, col_names = "HV236", locale = locale)
+
+# Slice the new csv from the codebook based on common characteristics
+# Finally, get rid of all the missing labels
+person_collect <- person_collect %>% slice((grep("fetching", HV236)+1):(grep("HV237", HV236)-1)) %>% 
+                        separate(HV236, c("code", "hv236_person"), sep = "\\s", extra = "merge") %>% 
+                        filter(!is.na(hv236_person))
+
+# There's a "Missing" value that is a remnant...get rid of it.                        
+person_collect <- person_collect %>% slice(1:(grep("Missing", hv236_person)-1))
+
+# Trim the white space in the hv236_person variable
+person_collect$hv236_person <- trimws(person_collect$hv236_person)
+
+# Add in the name_year variable
+person_collect$name_year <- name_year
+
+# Save all the df together to bind together
+codebook[[i]] <- person_collect
+
+# Print the name that is finished
+print(paste0(name_year, " has finished processing"))
+
+# Remove everything except two objects to save on memory costs
+rm(list = setdiff(ls(), c("countries", "codebook", "data_aim1", "to_extract")))
+
+}
+
+# bind all the DFs generated together
+codebook <- do.call(rbind, codebook)
+
+# Set the code in the codebook to numeric to match the full dataset
+codebook$code <- as.numeric(codebook$code)
+
+# Left join the hv201_sources in the codebook to the full dataset
+data_aim1 <- data_aim1 %>% left_join(codebook, by = join_by(name_year, hv236 == code))
+
+
+# Clean the Person Carrying Water Variable --------------------------------
+tabyl(data_aim1$hv236_person)
+
+data_aim1 <- data_aim1 %>% mutate(hv236_person = case_when(
+                 hv236_person %in% c("Other", "other", "Don't know",
+                                     "Door to door water seller", "Water vendor") ~ "Unknown/Other",
+                 hv236_person %in% c("All members", "Any household member") ~ "Any member",
+                 hv236_person == "Female and male children equally" ~ "Female and male child under 15 years old",
+                 TRUE ~ hv236_person))
+
 # Clean Water Walk Variable -----------------------------------------------
 data_aim1 <- data_aim1 %>% mutate(hv204 = case_when(
-                hv204 >= 996 ~ NA_integer_,
-                TRUE ~ hv204))
+                           hv204 >= 996 ~ NA_integer_,
+                           TRUE ~ hv204))
 
 # Clean Koppen-Geiger -----------------------------------------------------
 
