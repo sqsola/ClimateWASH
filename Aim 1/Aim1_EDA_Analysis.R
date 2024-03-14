@@ -2,14 +2,13 @@
 
 # Load Libraries
 library(readr)
-library(readxl)
 library(janitor)
 library(flextable)
 library(skimr)
 library(corrr)
 library(corrplot)
-library(lmerTest)
-library(multilevelTools)
+library(lme4)
+library(jtools)
 library(tidyverse)
 
 # Set the location
@@ -41,6 +40,31 @@ data_aim1 %>%
   adorn_totals("row") %>%
   qflextable() %>% 
   set_header_labels(hv007 = "Year", num_households = "Number of HHs")
+
+# Dual Axis Graph, Households by Water Walk Time
+dual_table <- data_aim1 %>%
+  group_by(hv007) %>%
+  summarise(num_hh_total = n(),
+            avg_walk_total = round(mean(hv204, na.rm = TRUE), 2),
+            num_hh_rural = sum(URBAN_RURA == "R", na.rm = TRUE),
+            avg_walk_rural = round(mean(hv204[URBAN_RURA == "R"], na.rm = TRUE), 2),
+            num_hh_urban = sum(URBAN_RURA == "U", na.rm = TRUE),
+            avg_walk_urban = round(mean(hv204[URBAN_RURA == "U"], na.rm = TRUE), 2),
+            num_hh_missing = sum(is.na(URBAN_RURA)),
+            avg_walk_missing = round(mean(hv204[is.na(URBAN_RURA)], na.rm = TRUE), 2)) %>% 
+            mutate(pct_missing = round((num_hh_missing / num_hh_total) * 100, digits = 1)) %>% 
+  adorn_totals("row")
+
+dual_table %>% flextable() %>% 
+  set_header_labels(hv007 = "Year", 
+                    num_hh_total = "Total HHs", avg_walk_total = "Total Avg Walk",
+                    num_hh_rural = "Rural HHs", avg_walk_rural = "Rural Avg Walk",
+                    num_hh_urban = "Urban HHs", avg_walk_urban = "Urban Avg Walk",
+                    num_hh_missing = "Missing HHs", avg_walk_missing = "Missing Avg Walk",
+                    pct_missing = "% HH Missing U/R") %>% 
+  theme_zebra() %>% theme_box() %>% align_nottext_col(align = "center", header = TRUE) %>% 
+  align_text_col(align = "center", header = TRUE)
+
 
 # Improved vs. Unimproved -------------------------------------------------
 
@@ -139,122 +163,158 @@ dataaim1_nopipe <- data_aim1 %>% filter(hv201_sourcecat != "Piped")
 rural_nopipe <- rural %>% filter(hv201_sourcecat != "Piped")
 urban_nopipe <- urban %>% filter(hv201_sourcecat != "Piped")
 
+# Variables to subset
+weather_var <- c("e_totalminus7",    "e_totalminus14",    "e_totalminus30",    "e_totalminus60",
+                 "tp_totalminus7",   "tp_totalminus14",   "tp_totalminus30",   "tp_totalminus60",
+                 "sro_totalminus7",  "sro_totalminus14",  "sro_totalminus30",  "sro_totalminus60",
+                 "ssro_totalminus7", "ssro_totalminus14", "ssro_totalminus30", "ssro_totalminus60",
+                 "t2m_avgminus7",    "t2m_avgminus14",    "t2m_avgminus30",    "t2m_avgminus60",
+                 "skt_avgminus7",    "skt_avgminus14",    "skt_avgminus30",    "skt_avgminus60",
+                 "lai_lv_avgminus7", "lai_lv_avgminus14", "lai_lv_avgminus30", "lai_lv_avgminus60",
+                 "lai_hv_avgminus7", "lai_hv_avgminus14", "lai_hv_avgminus30", "lai_hv_avgminus60",
+                 "d2m_avgminus7",    "d2m_avgminus14",    "d2m_avgminus30",    "d2m_avgminus60")
+
 # Correlation for full data
-cor_dataaim1 <- dataaim1_nopipe %>% select(hv204,
-                                      e_totalminus7, e_totalminus14, e_totalminus30, e_totalminus60,
-                                      tp_totalminus7, tp_totalminus14, tp_totalminus30, tp_totalminus60,
-                                      sro_totalminus7, sro_totalminus14, sro_totalminus30, sro_totalminus60,
-                                      ssro_totalminus7, ssro_totalminus14, ssro_totalminus30, ssro_totalminus60,
-                                      t2m_avgminus7, t2m_avgminus14, t2m_avgminus30, t2m_avgminus60,
-                                      skt_avgminus7, skt_avgminus14, skt_avgminus30, skt_avgminus60,
-                                      lai_lv_avgminus7, lai_lv_avgminus14, lai_lv_avgminus30, lai_lv_avgminus60,
-                                      lai_hv_avgminus7, lai_hv_avgminus14, lai_hv_avgminus30, lai_hv_avgminus60,
-                                      d2m_avgminus7, d2m_avgminus14, d2m_avgminus30, d2m_avgminus60)
+subset_dataaim1 <- dataaim1_nopipe %>% select(hv204, all_of(weather_var))
           
-x <- cor_dataaim1 %>% 
-        correlate() %>% 
-        focus(hv204)
+cor_dataaim1_focus <- subset_dataaim1 %>% 
+                      correlate() %>% 
+                      focus(hv204)
 
-x %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
-      mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
-      ggplot(aes(x = term, y = hv204)) + 
-      geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
-      ylab("Correlation with Water Walk Time (HV204)") + 
-      xlab("Variable") +
-      scale_x_discrete(guide = guide_axis(angle = 30)) +
-      scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+cor_dataaim1_focus %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
+                       mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
+                       ggplot(aes(x = term, y = hv204)) + 
+                       geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
+                       ylab("Correlation with Water Walk Time (HV204)") + 
+                       xlab("Variable") +
+                       scale_x_discrete(guide = guide_axis(angle = 30)) +
+                       scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+
+# Corrplot
+subset_dataaim1 <- subset_dataaim1 %>% select(-hv204)
+
+cor_dataaim1_weather <-  cor(subset_dataaim1, use = "complete.obs")
+
+testRes <- cor.mtest(cor_dataaim1_weather, conf.level = 0.95)
+
+labelCol <-  c("purple", "purple", "purple", "purple", "black", "black", "black", "black")
+
+corrplot(cor_dataaim1_weather, p.mat = testRes$p, method = "square", order = "alphabet",
+         diag = TRUE, type = "lower", sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
+         insig = "label_sig", pch.col = "grey1", tl.col = labelCol)
+
       
-
 # Correlation for rural data
-cor_rural <- rural_nopipe %>% select(hv204,
-                                e_totalminus7, e_totalminus14, e_totalminus30, e_totalminus60,
-                                tp_totalminus7, tp_totalminus14, tp_totalminus30, tp_totalminus60,
-                                sro_totalminus7, sro_totalminus14, sro_totalminus30, sro_totalminus60,
-                                ssro_totalminus7, ssro_totalminus14, ssro_totalminus30, ssro_totalminus60,
-                                t2m_avgminus7, t2m_avgminus14, t2m_avgminus30, t2m_avgminus60,
-                                skt_avgminus7, skt_avgminus14, skt_avgminus30, skt_avgminus60,
-                                lai_lv_avgminus7, lai_lv_avgminus14, lai_lv_avgminus30, lai_lv_avgminus60,
-                                lai_hv_avgminus7, lai_hv_avgminus14, lai_hv_avgminus30, lai_hv_avgminus60,
-                                d2m_avgminus7, d2m_avgminus14, d2m_avgminus30, d2m_avgminus60)
+subset_rural <- rural_nopipe %>% select(hv204, all_of(weather_var))
 
-x <- cor_rural %>% 
-       correlate() %>% 
-       focus(hv204)
+cor_rural_focus <- subset_rural %>% 
+                   correlate() %>% 
+                   focus(hv204)
 
-x %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
-      mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
-      ggplot(aes(x = term, y = hv204)) + 
-      geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
-      ylab("Correlation with Water Walk Time (HV204)") + 
-      xlab("Variable") +
-      scale_x_discrete(guide = guide_axis(angle = 30)) +
-      scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+cor_rural_focus %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
+                    mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
+                    ggplot(aes(x = term, y = hv204)) + 
+                    geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
+                    ylab("Correlation with Water Walk Time (HV204)") + 
+                    xlab("Variable") +
+                    scale_x_discrete(guide = guide_axis(angle = 30)) +
+                    scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+                  
+# Corr Plot
+subset_rural <- subset_rural %>% select(-hv204)
+
+cor_rural_weather <-  cor(subset_rural, use = "complete.obs")
+
+testRes <- cor.mtest(cor_rural_weather, conf.level = 0.95)
+
+labelCol <-  c("purple", "purple", "purple", "purple", "black", "black", "black", "black")
+
+corrplot(cor_rural_weather, p.mat = testRes$p, method = "square", order = "alphabet",
+         diag = TRUE, type = "lower", sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
+         insig = "label_sig", pch.col = "grey1", tl.col = labelCol)
+
 
 
 # Correlation for urban data
-cor_urban <- urban_nopipe %>% select(hv204,
-                                e_totalminus7, e_totalminus14, e_totalminus30, e_totalminus60,
-                                tp_totalminus7, tp_totalminus14, tp_totalminus30, tp_totalminus60,
-                                sro_totalminus7, sro_totalminus14, sro_totalminus30, sro_totalminus60,
-                                ssro_totalminus7, ssro_totalminus14, ssro_totalminus30, ssro_totalminus60,
-                                t2m_avgminus7, t2m_avgminus14, t2m_avgminus30, t2m_avgminus60,
-                                skt_avgminus7, skt_avgminus14, skt_avgminus30, skt_avgminus60,
-                                lai_lv_avgminus7, lai_lv_avgminus14, lai_lv_avgminus30, lai_lv_avgminus60,
-                                lai_hv_avgminus7, lai_hv_avgminus14, lai_hv_avgminus30, lai_hv_avgminus60,
-                                d2m_avgminus7, d2m_avgminus14, d2m_avgminus30, d2m_avgminus60)
+subset_urban <- urban_nopipe %>% select(hv204, all_of(weather_var))
     
-x <- cor_urban %>% 
-       correlate() %>% 
-       focus(hv204)
+cor_urban_focus <- subset_urban %>% 
+                   correlate() %>% 
+                   focus(hv204)
 
-x %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
-      mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
-      ggplot(aes(x = term, y = hv204)) + 
-      geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
-      ylab("Correlation with Water Walk Time (HV204)") + 
-      xlab("Variable") +
-      scale_x_discrete(guide = guide_axis(angle = 30)) +
-      scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
+cor_urban_focus %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
+                    mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
+                    ggplot(aes(x = term, y = hv204)) + 
+                    geom_bar(stat = 'identity', position = 'identity', aes(fill = color)) +
+                    ylab("Correlation with Water Walk Time (HV204)") + 
+                    xlab("Variable") +
+                    scale_x_discrete(guide = guide_axis(angle = 30)) +
+                    scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
 
+# Corr Plot
+subset_urban <- subset_urban %>% select(-hv204)
+
+cor_urban_weather <-  cor(subset_urban, use = "complete.obs")
+
+testRes <- cor.mtest(cor_urban_weather, conf.level = 0.95)
+
+labelCol <-  c("purple", "purple", "purple", "purple", "black", "black", "black", "black")
+
+corrplot(cor_urban_weather, p.mat = testRes$p, method = "square", order = "alphabet",
+         diag = TRUE, type = "lower", sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
+         insig = "label_sig", pch.col = "grey1", tl.col = labelCol)
 
 # Interaction Assessment -------------------------------------------------
 
+# Tabyl for people who carry water
+rural_nopipe %>% tabyl(hv236_person) %>% adorn_pct_formatting() %>%
+  adorn_totals("row") %>%
+  qflextable() %>% 
+  set_header_labels(hv236_person = "Person Carrying Water", n = "Number of HHs",
+                    percent = "Total Percent", valid_percent = "Percent among Non-Missing")
 
-
+rural_nopipe %>% group_by(hv236_person) %>%   
+  dplyr::summarise(mean_walk = mean(hv204),
+                   num_households = n()) %>% qflextable()
 
 
 
 # Modeling ----------------------------------------------------------------
-model <- lmer(log(hv204) ~ tp_totalminus30 + e_totalminus30 + sro_totalminus30 + skt +   
-                (1|name_year/hv001), data = rural_nopipe)
-model
-summary(model)
 
+rural <- rural %>% slice(1:25000)
 
+# Showing the effects of the log on the outcome
 rural_nopipe %>% ggplot(aes(x = hv204)) + geom_density()
 qqnorm(rural_nopipe$hv204, pch = 1)
 qqline(rural_nopipe$hv204, col = "red", lwd = 3)
-  
+
 
 rural_nopipe %>% ggplot(aes(x = log(hv204))) + geom_density()
 qqnorm(log(rural_nopipe$hv204), pch = 1)
 qqline(log(rural_nopipe$hv204), col = "red", lwd = 3)
 
+# model
+model <- lmer(log(hv204) ~ tp_totalminus30 + e_totalminus30 + sro_totalminus30 + skt +   
+                (1|name_year/hv001), data = rural)
 
 
+library(DHARMa)
+simoutput <- simulateResiduals(fittedModel = model, plot = F)
 
+plot(simoutput)
+
+# in Base R
+par(mfrow = c(2,2))
+base::plot(model)
+
+
+# summary of the model
+summ(model)
+
+
+# Model diagnostics
 plot(model, resid(., scaled=TRUE) ~ fitted(.), abline = 0, pch = 16, xlab = "Fitted Values", ylab = "Standard Resid")
 
 qqnorm(resid(model), pch = 16)
-qqline(resid(model))
-
-
-
-plot(model)
-
-qqnorm(residuals(model))
-
-qqnorm(rural_nopipe$hv204)
-
-cor(rural_nopipe$skt, rural_nopipe$t2m, use = "pairwise.complete.obs")
+qqline(resid(model), col = 2)
 
