@@ -10,6 +10,7 @@ library(corrplot)
 library(lme4)
 library(jtools)
 library(BSDA)
+library(ggborderline)
 library(tidyverse)
 
 # Set the location
@@ -33,6 +34,8 @@ urban <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/urban.
 
 # Households Summary ------------------------------------------------------
 
+## Tables for the Household Summary ---------------------------------------
+
 # number of households by year
 data_aim1 %>%
   group_by(hv007) %>%
@@ -42,125 +45,120 @@ data_aim1 %>%
   qflextable() %>% 
   set_header_labels(hv007 = "Year", num_households = "Number of HHs")
 
-# Summary Table, Water Walk Times, Rural vs Urban
+# Summary Table of water walk times
+# Includes total households, urban, rural, and missing
+# T-test is done via BSDA package, which allows for manual entry of parameters
+# T-test parameters are based on the summary table that was just created
+# Final mutate function creates a % of households that have missing U/R designations
 dual_table <- data_aim1 %>%
-  group_by(hv007) %>%
-  summarise(num_hh_total = n(),
-            avg_walk_total = round(mean(hv204, na.rm = TRUE), 2),
-            num_hh_rural = sum(URBAN_RURA == "R", na.rm = TRUE),
-            avg_walk_rural = round(mean(hv204[URBAN_RURA == "R"], na.rm = TRUE), 2),
-            num_hh_urban = sum(URBAN_RURA == "U", na.rm = TRUE),
-            avg_walk_urban = round(mean(hv204[URBAN_RURA == "U"], na.rm = TRUE), 2),
-            num_hh_missing = sum(is.na(URBAN_RURA)),
-            avg_walk_missing = round(mean(hv204[is.na(URBAN_RURA)], na.rm = TRUE), 2),
-            t_test = format(round(tsum.test(mean.x = avg_walk_rural,
-                               s.x = sd(hv204[URBAN_RURA == "R"], na.rm = TRUE),
-                               n.x = num_hh_rural,
-                               mean.y = avg_walk_urban,
-                               s.y = sd(hv204[URBAN_RURA == "U"], na.rm = TRUE),
-                               n.y = num_hh_urban,
-                               alternative = "greater")$p.value, 3), nsmall = 2)) %>%
-            mutate(pct_missing = round((num_hh_missing / num_hh_total) * 100, digits = 1))
+                group_by(hv007) %>%
+                summarise(num_hh_total = n(),
+                avg_walk_total = round(mean(hv204, na.rm = TRUE), 2),
+                num_hh_rural = sum(URBAN_RURA == "R", na.rm = TRUE),
+                avg_walk_rural = round(mean(hv204[URBAN_RURA == "R"], na.rm = TRUE), 2),
+                num_hh_urban = sum(URBAN_RURA == "U", na.rm = TRUE),
+                avg_walk_urban = round(mean(hv204[URBAN_RURA == "U"], na.rm = TRUE), 2),
+                num_hh_missing = sum(is.na(URBAN_RURA)),
+                avg_walk_missing = round(mean(hv204[is.na(URBAN_RURA)], na.rm = TRUE), 2),
+                t_test = format(round(tsum.test(mean.x = avg_walk_rural,
+                                                s.x = sd(hv204[URBAN_RURA == "R"], na.rm = TRUE),
+                                                n.x = num_hh_rural,
+                                                mean.y = avg_walk_urban,
+                                                s.y = sd(hv204[URBAN_RURA == "U"], na.rm = TRUE),
+                                                n.y = num_hh_urban,
+                                                alternative = "greater")$p.value, 3), nsmall = 2)) %>%
+                mutate(pct_missing = round((num_hh_missing / num_hh_total) * 100, digits = 1))
 
-
+# Creates the flextable of the previously created table with custom column names
+# Zebra theme creates gray/white boxes, and Box theme creates outlines
+# Headers (text / not text) are aligned
+# Removed the comma from the year column (1st column)
 dual_table %>% flextable() %>% 
-  set_header_labels(hv007 = "Year", 
-                    num_hh_total = "Total HHs", avg_walk_total = "Total Avg Walk",
-                    num_hh_rural = "Rural HHs", avg_walk_rural = "Rural Avg Walk",
-                    num_hh_urban = "Urban HHs", avg_walk_urban = "Urban Avg Walk",
-                    num_hh_missing = "Missing HHs", avg_walk_missing = "Missing Avg Walk",
-                    t_test = "One-Side T-Test P-Value", pct_missing = "% HH Missing U/R") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE) %>%
-  colformat_num(j = "hv007", big.mark = "")
+               set_header_labels(hv007 = "Year", 
+                                 num_hh_total = "Total HHs", avg_walk_total = "Total Avg Walk",
+                                 num_hh_rural = "Rural HHs", avg_walk_rural = "Rural Avg Walk",
+                                 num_hh_urban = "Urban HHs", avg_walk_urban = "Urban Avg Walk",
+                                 num_hh_missing = "Missing HHs", avg_walk_missing = "Missing Avg Walk",
+                                 t_test = "One-Side T-Test P-Value", pct_missing = "% HH Missing U/R") %>% 
+               theme_zebra() %>% theme_box() %>% 
+               align_nottext_col(align = "center", header = TRUE) %>%
+               align_text_col(align = "center", header = TRUE) %>%
+               colformat_num(j = "hv007", big.mark = "")
 
-# Dual Axis Graph
+# Pivoting the data in the previous table from wide to long
+# Needed to create proper graphs. 
 dual_graph <- pivot_longer(dual_table, cols = c('num_hh_total', 'num_hh_rural', 'num_hh_urban', 'num_hh_missing'), 
-                      names_to = "hh_type", 
-                      values_to = "num_hh")
+                           names_to = "hh_type", values_to = "num_hh")
+
+## Graphs for the Household Summary ---------------------------------------
 
 # Define common elements for all plots
-common_elements <- list(
-  scale_x_continuous(breaks = seq(1990, 2022, 1), labels = seq(1990, 2022, 1), expand = c(0, 0)),
-  scale_y_continuous(expand = c(0, 0)),
-  xlab("Year"),
-  ylab("Number of Households"),
-  theme_classic(),
-  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold"))
-)
+common_elements <- list(scale_x_continuous(breaks = seq(1990, 2022, 1), labels = seq(1990, 2022, 1), expand = c(0, 0)),
+                        scale_y_continuous(expand = c(0, 0)),
+                        xlab("Year"), ylab("Number of Households"),
+                        theme_classic(),
+                        theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold")))
 
 # Define a function to create the plot
 create_plot <- function(data, hh_types, fill_colors, fill_labels) {
-  ggplot(dual_graph %>% filter(hh_type %in% hh_types), 
-         aes(x = hv007, y = num_hh, fill = factor(hh_type, levels = hh_types))) +
-    geom_bar(stat = "identity", position = "dodge") +
-    scale_fill_manual(values = fill_colors, labels = fill_labels) +
-    guides(fill = guide_legend(title = "Type of\nHousehold\n(Urban/Rural)")) +
-    common_elements
-}
-
-# Geoms for line graph
-geom_line_hh <- geom_line(data = dual_table, aes(x = hv007, y = avg_walk_total*2000, group = 1, color = "All Households"), inherit.aes = FALSE, linewidth = 1)
+               ggplot(dual_graph %>% filter(hh_type %in% hh_types), 
+                      aes(x = hv007, y = num_hh, fill = factor(hh_type, levels = hh_types))) +
+                      geom_bar(stat = "identity", position = "dodge") +
+                      scale_fill_manual(values = fill_colors, labels = fill_labels) +
+                      guides(fill = guide_legend(title = "Type of\nHousehold\n(Urban/Rural)")) + common_elements}
+     
+# Geoms for the line graph
+geom_line_hh <- geom_borderline(data = dual_table, aes(x = hv007, y = avg_walk_total*2000, group = 1, color = "All Households"), inherit.aes = FALSE, linewidth = 1, bordercolour = "black")
 geom_point_hh <- geom_point(data = dual_table, aes(x = hv007, y = avg_walk_total*2000, group = 1, color = "All Households"), inherit.aes = FALSE, size = 3)
-geom_line_rural <- geom_line(data = dual_table, aes(x = hv007, y = avg_walk_rural*2000, group = 1, color = "Rural Households"), inherit.aes = FALSE, linewidth = 1)
+geom_point_hh_outline <- geom_point(data = dual_table, aes(x = hv007, y = avg_walk_total*2000, group = 1), inherit.aes = FALSE, size = 4, color = "#000000")
+geom_line_rural <- geom_borderline(data = dual_table, aes(x = hv007, y = avg_walk_rural*2000, group = 1, color = "Rural Households"), inherit.aes = FALSE, linewidth = 1, bordercolour = "black")
 geom_point_rural <- geom_point(data = dual_table, aes(x = hv007, y = avg_walk_rural*2000, group = 1, color = "Rural Households"), inherit.aes = FALSE, size = 3)
-geom_line_urban <- geom_line(data = dual_table, aes(x = hv007, y = avg_walk_urban*2000, group = 1, color = "Urban Households"), inherit.aes = FALSE, linewidth = 1)
+geom_point_rural_outline <- geom_point(data = dual_table, aes(x = hv007, y = avg_walk_rural*2000, group = 1), inherit.aes = FALSE, size = 4, color = "#000000")
+geom_line_urban <- geom_borderline(data = dual_table, aes(x = hv007, y = avg_walk_urban*2000, group = 1, color = "Urban Households"), inherit.aes = FALSE, linewidth = 1, bordercolor = "black")
 geom_point_urban <- geom_point(data = dual_table, aes(x = hv007, y = avg_walk_urban*2000, group = 1, color = "Urban Households"), inherit.aes = FALSE, size = 3)
+geom_point_urban_outline <- geom_point(data = dual_table, aes(x = hv007, y = avg_walk_urban*2000, group = 1), inherit.aes = FALSE, size = 4, color = "#000000")
 
-# Total Only
-create_plot(data2, c("num_hh_total"), c("num_hh_total" = "#2c7bb6"), c("num_hh_total" = "Total"))
+# Bar Chart: Total Only
+create_plot(dual_graph, c("num_hh_total"), c("num_hh_total" = "#2c7bb6"), c("num_hh_total" = "Total"))
 
-# Total and Urban
-create_plot(data2, c("num_hh_total", "num_hh_urban"), 
+# Bar Chart: Total and Urban
+create_plot(dual_graph, c("num_hh_total", "num_hh_urban"), 
             c("num_hh_urban" = "#fdae61", "num_hh_total" = "#2c7bb6"), 
             c("num_hh_urban" = "Urban", "num_hh_total" = "Total"))
 
-# Total, Urban, and Rural
-create_plot(data2, c("num_hh_total", "num_hh_urban", "num_hh_rural"), 
+# Bar Chart: Total, Urban, and Rural
+create_plot(dual_graph, c("num_hh_total", "num_hh_urban", "num_hh_rural"), 
             c("num_hh_urban" = "#fdae61", "num_hh_total" = "#2c7bb6", "num_hh_rural" = "#d7191c"),
             c("num_hh_urban" = "Urban", "num_hh_total" = "Total", "num_hh_rural" = "Rural"))
 
-# Full Graph
-(full_graph <- create_plot(data2, c("num_hh_total", "num_hh_rural", "num_hh_urban", "num_hh_missing"), 
+# Bar Chart: Total, Urban, Rural, and Missing (Full Bar Chart)
+(full_graph <- create_plot(dual_graph, c("num_hh_total", "num_hh_rural", "num_hh_urban", "num_hh_missing"), 
                           c("num_hh_rural" = "#d7191c", "num_hh_urban" = "#fdae61", "num_hh_total" = "#2c7bb6", "num_hh_missing" = "grey45"),
                           c("num_hh_rural" = "Rural", "num_hh_urban" = "Urban", "num_hh_total" = "Total", "num_hh_missing" = "Missing")))
 
-# Full Graph with line plot
-full_graph + geom_line_hh + geom_point_hh +
-  
-  scale_color_manual(name = "Household Type",
-                     values = c("All Households" = "#7156a9"),
-                     labels = c("All Households" = "All Households")) +
-  scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"),
-                     expand = c(0, 0))
+# Full Bar Chart with All Households Line Chart
+full_graph + geom_line_hh + geom_point_hh_outline + geom_point_hh +
+             scale_color_manual(name = "Household Type",
+                                values = c("All Households" = "#2c7bb6"),
+                                labels = c("All Households" = "All Households")) +
+             scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"), expand = c(0, 0))
 
+# Full Bar Chart with All and Rural Households Line Chart
+full_graph + geom_line_hh + geom_point_hh_outline + geom_point_hh + 
+             geom_line_rural + geom_point_rural_outline + geom_point_rural +
+             scale_color_manual(name = "Household Type",
+                                values = c("All Households" = "#2c7bb6", "Rural Households" = "#d7191c"),
+                                labels = c("All Households" = "All Households", "Rural Households" = "Rural Households")) +
+             scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"), expand = c(0, 0))
 
-
-# Full Graph with all and rural households
-full_graph + geom_line_hh + geom_point_hh + geom_line_rural + geom_point_rural +
-  
-  scale_color_manual(name = "Household Type",
-                     values = c("All Households" = "#7156a9", "Rural Households" = "#3ac570"),
-                     labels = c("All Households" = "All Households", "Rural Households" = "Rural Households")) +
-  scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"),
-                     expand = c(0, 0))
-
-
-# Full Graph with all, rural, and urban households
-full_graph + geom_line_hh + geom_point_hh + geom_line_rural + geom_point_rural + geom_line_urban + geom_point_urban +
-  
-  # Adding the line plot with a secondary y-axis
-  
-  scale_color_manual(name = "Household Type",
-                     values = c("All Households" = "#7156a9", "Rural Households" = "#3ac570", "Urban Households" = "#fc8d62"),
-                     labels = c("All Households" = "All Households", "Rural Households" = "Rural Households", "Urban Households" = "Urban Households")) +
-  scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"),
-                     expand = c(0, 0))
-
-
-
-    
+# Full Bar Chart with All, Rural, and Urban Households Line Chart
+full_graph + geom_line_hh + geom_point_hh_outline + geom_point_hh + 
+             geom_line_rural + geom_point_rural_outline + geom_point_rural + 
+             geom_line_urban + geom_point_urban_outline + geom_point_urban +
+             scale_color_manual(name = "Household Type",
+                                values = c("All Households" = "#2c7bb6", "Rural Households" = "#d7191c", "Urban Households" = "#fdae61"),
+                                labels = c("All Households" = "All Households", "Rural Households" = "Rural Households", "Urban Households" = "Urban Households"))+
+             scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"), expand = c(0, 0))
 
 # Improved vs. Unimproved -------------------------------------------------
 
@@ -177,6 +175,16 @@ urban %>% tabyl(hv201_improved) %>% adorn_pct_formatting() %>% qflextable() %>%
                set_header_labels(hv201_improved = "Type of Source", n = "Number of HHs") %>% 
                width(width = 1)
                
+
+# Wealth Quintiles --------------------------------------------------------
+
+
+data_aim1 %>% tabyl(hv270, hv007)
+
+data_aim1 %>% tabyl(hv270a, hv007)
+
+
+
 # Water Walk Times --------------------------------------------------------
 
 # Datasets for the for loop
