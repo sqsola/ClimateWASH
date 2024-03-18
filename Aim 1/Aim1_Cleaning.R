@@ -263,6 +263,15 @@ data_aim1 <- data_aim1 %>% mutate(kgc_course = case_when(
                               kgc == "Climate Zone info missing" ~ NA_character_,
                               TRUE ~ NA_character_))
 
+
+# Coalesce the wlthind5 and hv270 variables -------------------------------
+
+data_aim1 <- data_aim1 %>%
+             mutate(hv270 = coalesce(wlthind5, hv270))
+
+
+# Output the datasets -----------------------------------------------------
+
 # Separate the data between Rural and Urban
 cat("There are", nrow(data_aim1 %>% filter(URBAN_RURA == "R")), "rural households")
 cat("There are", nrow(data_aim1 %>% filter(URBAN_RURA == "U")), "urban households")
