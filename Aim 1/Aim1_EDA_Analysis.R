@@ -8,9 +8,11 @@ library(skimr)
 library(corrr)
 library(corrplot)
 library(lme4)
+library(broom.mixed)
 library(jtools)
 library(BSDA)
 library(ggborderline)
+library(gtsummary)
 library(tidyverse)
 
 # Set the location
@@ -179,11 +181,22 @@ urban %>% tabyl(hv201_improved) %>% adorn_pct_formatting() %>% qflextable() %>%
 # Wealth Quintiles --------------------------------------------------------
 
 
-data_aim1 %>% tabyl(hv270, hv007)
+data_aim1 %>% filter(hv007 %in% c(2015:2017)) %>% filter(URBAN_RURA == "R") %>% 
+  tabyl(hv270, hv007, URBAN_RURA) %>% adorn_totals("row") %>% as.data.frame() %>% qflextable
 
-data_aim1 %>% tabyl(hv270a, hv007)
+data_aim1 %>% filter(hv007 %in% c(2015:2017)) %>% filter(URBAN_RURA == "U") %>% 
+  tabyl(hv270, hv007, URBAN_RURA) %>% adorn_totals("row") %>% as.data.frame() %>% qflextable
+
+data_aim1 %>% filter(hv007 %in% c(2015:2017)) %>% filter(URBAN_RURA == "R") %>% 
+  tabyl(hv270a, hv007, URBAN_RURA) %>% adorn_totals("row") %>% as.data.frame() %>% qflextable
+
+data_aim1 %>% filter(hv007 %in% c(2015:2017)) %>% filter(URBAN_RURA == "U") %>% 
+  tabyl(hv270a, hv007, URBAN_RURA) %>% adorn_totals("row") %>% as.data.frame() %>%  qflextable
 
 
+data_aim1 %>% filter(hv007 %in% c(2003:2022)) %>% 
+              ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270))) +
+              geom_boxplot() 
 
 # Water Walk Times --------------------------------------------------------
 
@@ -385,7 +398,7 @@ rural_nopipe %>% group_by(hv236_person) %>%
 
 # Modeling ----------------------------------------------------------------
 
-rural <- rural %>% slice(1:25000)
+rural_model <- rural %>% slice(1:25000)
 
 # Showing the effects of the log on the outcome
 rural_nopipe %>% ggplot(aes(x = hv204)) + geom_density()
@@ -399,7 +412,11 @@ qqline(log(rural_nopipe$hv204), col = "red", lwd = 3)
 
 # model
 model <- lmer(log(hv204) ~ tp_totalminus30 + e_totalminus30 + sro_totalminus30 + skt +   
-                (1|name_year/hv001), data = rural)
+                (1|name_year/hv001), data = rural_model)
+
+# Using GT Summmary
+tbl_regression(model, exponentiate = TRUE)
+
 
 
 library(DHARMa)
