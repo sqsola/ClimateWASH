@@ -8,7 +8,6 @@ library(skimr)
 library(corrr)
 library(corrplot)
 library(lme4)
-library(broom.mixed)
 library(jtools)
 library(BSDA)
 library(ggborderline)
@@ -193,10 +192,60 @@ data_aim1 %>% filter(hv007 %in% c(2015:2017)) %>% filter(URBAN_RURA == "R") %>%
 data_aim1 %>% filter(hv007 %in% c(2015:2017)) %>% filter(URBAN_RURA == "U") %>% 
   tabyl(hv270a, hv007, URBAN_RURA) %>% adorn_totals("row") %>% as.data.frame() %>%  qflextable
 
-
+# Full dataset, HV270
 data_aim1 %>% filter(hv007 %in% c(2003:2022)) %>% 
               ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270))) +
-              geom_boxplot() 
+              geom_boxplot() +  
+              scale_y_continuous(expand = c(0, 0))+
+              xlab("Year") + ylab("Log (Water Walk Time)") + 
+              theme_classic()+
+              theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold")) +
+              ggtitle("Full dataset and HV270 (Combined Wealth)") +
+              theme(plot.title = element_text(hjust = 0.5))
+
+# Rural dataset, HV270
+rural %>% filter(hv007 %in% c(2003:2022)) %>% 
+          ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270))) +
+          geom_boxplot() +  
+          scale_y_continuous(expand = c(0, 0))+
+          xlab("Year") + ylab("Log (Water Walk Time)") + 
+          theme_classic()+
+          theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold")) +
+          ggtitle("Rural dataset and HV270 (Combined Wealth)")+
+          theme(plot.title = element_text(hjust = 0.5))
+
+# Urban dataset, HV270
+urban %>% filter(hv007 %in% c(2003:2022)) %>% 
+          ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270))) +
+          geom_boxplot() +  
+          scale_y_continuous(expand = c(0, 0))+
+          xlab("Year") + ylab("Log (Water Walk Time)") + 
+          theme_classic()+
+          theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold")) +
+          ggtitle("Urban dataset and HV270 (Combined Wealth)")+
+          theme(plot.title = element_text(hjust = 0.5))
+
+# Rural dataset, HV270a
+rural %>% filter(hv007 %in% c(2015:2022)) %>%
+          ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270a))) +
+          geom_boxplot() +  
+          scale_y_continuous(expand = c(0, 0))+
+          xlab("Year") + ylab("Log (Water Walk Time)") + 
+          theme_classic()+
+          theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold"))+
+          ggtitle("Rural dataset and HV270a (Separate Wealth)")+
+          theme(plot.title = element_text(hjust = 0.5))
+
+# Urban dataset, HV270a
+urban %>% filter(hv007 %in% c(2015:2022)) %>%
+          ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270a))) +
+          geom_boxplot() +  
+          scale_y_continuous(expand = c(0, 0))+
+          xlab("Year") + ylab("Log (Water Walk Time)") + 
+          theme_classic()+
+          theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold"))+
+          ggtitle("Urban dataset and HV270a (Separate Wealth)")+
+          theme(plot.title = element_text(hjust = 0.5))
 
 # Water Walk Times --------------------------------------------------------
 
