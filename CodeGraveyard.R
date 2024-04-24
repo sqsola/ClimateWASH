@@ -121,8 +121,6 @@ rural_final %>% group_by(hv001) %>% dplyr::summarise(num_psu = n()) %>% dplyr::s
 
 
 
-
-
 # Person fetching water
 table(rural_final$hv236)
 
@@ -151,3 +149,157 @@ mapping$ID <- NA
 mapping$ID <- seq(1:nrow(mapping))
 
 write.csv(mapping, "mappingforposter.csv")
+
+
+
+# Attempting to fix CM_91 for Aim 2....
+if (name_year == "CM_91") {
+  
+  # Trim the whitespace of the HHID and Case ID variables
+  hh$hhid_clean <- trimws(hh$hhid)
+  offspring$caseid_clean <- trimws(offspring$caseid)
+  
+  # Manually change a merged caseid number
+  offspring <- offspring %>% 
+    mutate(caseid_clean = ifelse(caseid_clean == "99132 1  4", "99 132 1 4", caseid_clean)) %>% 
+    mutate(caseid_clean = ifelse(caseid_clean == "99132 1  2", "99 132 1 2", caseid_clean)) %>% 
+    mutate(caseid_clean = ifelse(caseid_clean == "104 8727  2", "104 872 7  2", caseid_clean))%>% 
+    mutate(caseid_clean = ifelse(caseid_clean == "104 8811  2", "104 881 1  2", caseid_clean))
+
+  # Remove the numbers after the last space (twice)
+  offspring$caseid_clean <- gsub(" [^ ]*$", "", offspring$caseid_clean) %>% trimws()
+  # offspring$caseid_clean <- gsub(" [^ ]*$", "", offspring$caseid_clean) %>% trimws()
+  
+  # Separate out 44 and 73 households that were merged
+  hh <- hh %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "4440010", "44 400 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "7312610", "73 126 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "104 8613", "104 86 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "104 8639", "104 86 3", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "104 8715", "104 87 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "104 8727", "104 87 2", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "104 8811", "104 88 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "46 1812", "46 18 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "47  113", "47 11 3", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "80 4010", "80 40 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "88 5611", "88 561 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "113 3030", "113 30 3", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "122 6711", "122 67 1", hhid_clean)) %>% 
+    mutate(hhid_clean = ifelse(hhid_clean == "142 4412", "142 44 1", hhid_clean)) 
+  
+  # Remove the numbers after the last space
+  # hh$hhid_clean <- gsub(" [^ ]*$", "", hh$hhid_clean) %>% trimws()
+  
+  # Detect the number of digits in a row,
+  # If 4 digits in a row, add a space after the first digit
+  # If 5 digits in a row, add a space after the second digit
+  # If 6 digits in a row, add a space after the third digit
+  # If doesn't meet any conditions, original HHID
+  
+  hh <- hh %>% 
+    mutate(
+      hhid_clean = case_when(
+        str_detect(hhid_clean, "^\\d{4,4}$") ~ gsub(hhid_clean, pattern = "(.{1})(.*)", replacement = "\\1 \\2"),
+        str_detect(hhid_clean, "^\\d{5,5}$") ~ gsub(hhid_clean, pattern = "(.{2})(.*)", replacement = "\\1 \\2"),
+        str_detect(hhid_clean, "^\\d{6,6}$") ~ gsub(hhid_clean, pattern = "(.{3})(.*)", replacement = "\\1 \\2"),
+        TRUE ~ hhid_clean
+      )
+    )
+  
+  hh <- hh %>% 
+    separate(hhid_clean, into = c("hhid_clean", "hv002"), sep = "\\s+") %>% 
+    relocate(hv002, .after = hv001) %>%
+    select(-hhid_clean)
+  
+  hh$hv002 <- as.numeric(hh$hv002)
+  
+  class(hh$hv002)
+}
+
+
+
+
+
+# Full Bar Chart with All and Rural Households Line Chart
+full_graph + geom_line_hh + geom_point_hh_outline + geom_point_hh + 
+  geom_line_rural + geom_point_rural_outline + geom_point_rural +
+  scale_color_manual(name = "Household Type",
+                     values = c("All Households" = "#2c7bb6", "Rural Households" = "#d7191c"),
+                     labels = c("All Households" = "All Households", "Rural Households" = "Rural Households")) +
+  scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"), expand = c(0, 0))
+
+# Full Bar Chart with All, Rural, and Urban Households Line Chart
+full_graph + geom_line_hh + geom_point_hh_outline + geom_point_hh + 
+  geom_line_rural + geom_point_rural_outline + geom_point_rural + 
+  geom_line_urban + geom_point_urban_outline + geom_point_urban +
+  scale_color_manual(name = "Household Type",
+                     values = c("All Households" = "#2c7bb6", "Rural Households" = "#d7191c", "Urban Households" = "#fdae61"),
+                     labels = c("All Households" = "All Households", "Rural Households" = "Rural Households", "Urban Households" = "Urban Households"))+
+  scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"), expand = c(0, 0))
+
+# Full Bar Chart with All Households Line Chart
+full_graph + geom_line_hh + geom_point_hh_outline + geom_point_hh +
+  scale_color_manual(name = "Household Type",
+                     values = c("All Households" = "#2c7bb6"),
+                     labels = c("All Households" = "All Households")) +
+  scale_y_continuous(sec.axis = sec_axis(~./2000, name = "Average Walk Time"), expand = c(0, 0))
+
+
+
+
+
+
+
+# Rural dataset, HV270 (filtered to match HV 270a)
+rural %>% filter(hv007 %in% c(2015:2022)) %>%
+  ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270))) +
+  geom_boxplot() +  
+  scale_y_continuous(expand = c(0, 0))+
+  xlab("Year") + ylab("Log (Water Walk Time)") + 
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold")) +
+  ggtitle("Rural dataset and HV270 (Combined Wealth)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Urban dataset, HV270
+urban %>% ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270))) +
+  geom_boxplot() +  
+  scale_y_continuous(expand = c(0, 0))+
+  xlab("Year") + ylab("Log (Water Walk Time)") + 
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold")) +
+  ggtitle("Urban dataset and HV270 (Combined Wealth)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Urban dataset, HV270 (filtered to match HV 270a)
+urban %>% filter(hv007 %in% c(2015:2022)) %>%
+  ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270))) +
+  geom_boxplot() +  
+  scale_y_continuous(expand = c(0, 0))+
+  xlab("Year") + ylab("Log (Water Walk Time)") + 
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold")) +
+  ggtitle("Urban dataset and HV270 (Combined Wealth)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Rural dataset, HV270a
+rural %>% filter(hv007 %in% c(2015:2022)) %>%
+  ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270a))) +
+  geom_boxplot() +  
+  scale_y_continuous(expand = c(0, 0))+
+  xlab("Year") + ylab("Log (Water Walk Time)") + 
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold"))+
+  ggtitle("Rural dataset and HV270a (Separate Wealth)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Urban dataset, HV270a
+urban %>% filter(hv007 %in% c(2015:2022)) %>%
+  ggplot(mapping = aes(x = factor(hv007), y = log(hv204), color = factor(hv270a))) +
+  geom_boxplot() +  
+  scale_y_continuous(expand = c(0, 0))+
+  xlab("Year") + ylab("Log (Water Walk Time)") + 
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold"))+
+  ggtitle("Urban dataset and HV270a (Separate Wealth)")+
+  theme(plot.title = element_text(hjust = 0.5))
