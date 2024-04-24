@@ -12,7 +12,7 @@ library(stringr)
 library(sf)
 library(readxl)
 library(data.table)
-library(ethiopianDate)
+library(ethiopianDate, lib = "rlibs/R/ethiopianDate")
 
 countries <- read_excel("Country_Index_HPC.xlsx")
 
