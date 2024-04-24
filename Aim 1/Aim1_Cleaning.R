@@ -124,33 +124,36 @@ data_aim1 <- data_aim1 %>% left_join(codebook, by = join_by(name_year, hv201 == 
 
 # Categorize the source of the water. 
 data_aim1 <- data_aim1 %>% mutate(hv201_sourcecat = case_when(
-                              str_detect(hv201_source, "(river|River)") ~ "River",
-                              str_detect(hv201_source, "(Open|open|not|Unprotected|unprotected|fountain|Non|land|^Public water$)") ~ "Unprotected",
-                              str_detect(hv201_source, "(Covered|covered|Protected|protected|Improved)") ~ "Protected",
-                              str_detect(hv201_source, "(Piped|pipe|tap|Tap|faucet)") ~ "Piped",
-                              str_detect(hv201_source, "(Borehole|Barehole|borehole|Borehl|stand|bore hole|Manual|Tube|Drilling)") ~ "Borehole",
-                              str_detect(hv201_source, "(Piped|pipe|tap|Tap|house|courtyard)") ~ "Piped",
-                              str_detect(hv201_source, "(Well|well)") ~ "Well",
-                              str_detect(hv201_source, "(Spring|^Other spring$)") ~ "Spring",
-                              str_detect(hv201_source, "(Sachet|sachet|Water bag|Bag water|plastic bag|Satchel)") ~ "Sachet",
-                              str_detect(hv201_source, "(Lake|lake|Dam|Resevoir|Dugout|Canal|Gravity|road|Forage|cesspool|Irrigation|surface)") ~ "Surface water",
-                              str_detect(hv201_source, "(Vendor|vendor|Purchased|Tanker|TANKER|tanker|Bicycle|Motorcycle|Cart|vender|station|merchant|seller|Arranged)") ~ "Vendor",
-                              str_detect(hv201_source, "(rainwater|Rainwater|Rain-water|RAINWATER|rain water)") ~ "Rainwater",
-                              str_detect(hv201_source, "(other|Other|OTHER)") ~ "Other",
-                              str_detect(hv201_source, "(Neighbor|Neighbour|neighbor|Naighbor)") ~ "Piped",
-                              TRUE ~ hv201_source))
-            
+                                  str_detect(hv201_source, "(river|River|Surface water)") ~ "Surface water/River",
+                                  str_detect(hv201_source, "(Open|open|not|Unprotected|unprotected|fountain|Non|land|^Public water$)") ~ "Unprotected",
+                                  str_detect(hv201_source, "(Covered|covered|Protected|protected|Improved)") ~ "Protected/Improved",
+                                  str_detect(hv201_source, "(Piped|pipe|tap|Tap|faucet)") ~ "Piped",
+                                  str_detect(hv201_source, "(Borehole|Barehole|borehole|Borehl|stand|bore hole|Manual|Tube|Drilling)") ~ "Borehole",
+                                  str_detect(hv201_source, "(Piped|pipe|tap|Tap|house|courtyard)") ~ "Piped",
+                                  str_detect(hv201_source, "(Well|well)") ~ "Well",
+                                  str_detect(hv201_source, "(Spring|^Other spring$)") ~ "Spring",
+                                  str_detect(hv201_source, "(Sachet|sachet|Water bag|Bag water|plastic bag|Satchel)") ~ "Vendor",
+                                  str_detect(hv201_source, "(Lake|lake|Dam|Resevoir|Dugout|Canal|Gravity|road|Forage|cesspool|Irrigation|surface)") ~ "Surface water/River",
+                                  str_detect(hv201_source, "(Vendor|vendor|Purchased|Tanker|TANKER|tanker|Bicycle|Motorcycle|Cart|vender|station|merchant|seller|Arranged source|Bottled water)") ~ "Vendor",
+                                  str_detect(hv201_source, "(rainwater|Rainwater|Rain-water|RAINWATER|rain water)") ~ "Rainwater",
+                                  str_detect(hv201_source, "(other|Other|OTHER)") ~ "Other",
+                                  str_detect(hv201_source, "(Neighbor|Neighbour|neighbor|Naighbor)") ~ "Piped",
+                                  TRUE ~ "Other/Unknown"))
+
 # Categorize the source of the water. 
 data_aim1 <- data_aim1 %>% mutate(hv201_improved = case_when(
-                              hv201_sourcecat %in% c("Unprotected", "Vendor", "River", "Bottled water",
-                                                     "Surface water", "Spring", "Sachet", "Well") ~ "Unimproved",
-                              hv201_sourcecat %in% c("Protected", "Borehole", "Piped", "Rainwater") ~ "Improved",
-                              TRUE ~ "UNKNOWN"))
+                              hv201_sourcecat %in% c("Unprotected", "Vendor", "Bottled water",
+                                                     "Surface water/River", "Spring", "Well") ~ "Unimproved",
+                              hv201_sourcecat %in% c("Protected/Improved", "Borehole", "Piped", "Rainwater") ~ "Improved",
+                              TRUE ~ "Other/Unknown"))
       
 # Check the coding
-data_aim1 %>% select(hv201_source, hv201_sourcecat, hv201_improved) %>% 
+test <- data_aim1 %>% select(hv201_source, hv201_sourcecat, hv201_improved) %>% 
               arrange(hv201_source, hv201_sourcecat, hv201_improved) %>% 
               distinct(hv201_source, hv201_sourcecat, hv201_improved, .keep_all = FALSE)
+
+
+data.table::fwrite(test, "water_source.csv")
 
 # HV236 Person Collecting -------------------------------------------------
 
@@ -222,13 +225,37 @@ data_aim1 <- data_aim1 %>% left_join(codebook, by = join_by(name_year, hv236 == 
 # Clean the Person Carrying Water Variable --------------------------------
 tabyl(data_aim1$hv236_person)
 
-data_aim1 <- data_aim1 %>% mutate(hv236_person = case_when(
+
+data_aim1 %>% group_by(hv236_person) %>% 
+  summarize(num = n()) %>% 
+  mutate(hv236_person = recode(hv236_person, .missing = "Unknown")) %>% 
+  qflextable() %>% 
+  set_header_labels(hv236_person = "Water Collector", 
+                    num = "Total HHs") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+
+data_aim1 <- data_aim1 %>% mutate(hv236_person_recode = case_when(
                  hv236_person %in% c("Other", "other", "Don't know",
-                                     "Door to door water seller", "Water vendor") ~ "Unknown/Other",
+                                     "Door to door water seller", "Water vendor") ~ NA_character_,
                  hv236_person %in% c("All members", "Any household member") ~ "Any member",
-                 hv236_person == "Female and male children equally" ~ "Female and male child under 15 years old",
+                 hv236_person %in% c("Male age 15-17 years old", "Female age 15-17 years old", 
+                                     "Female and male children equally", "Female and male child under 15 years old") ~ "Female and male children",
+                 hv236_person == "Adult woman with child" ~ "Adult woman",
                  TRUE ~ hv236_person))
 
+data_aim1 %>% group_by(hv236_person_recode) %>% 
+  summarize(num = n()) %>% 
+  mutate(hv236_person_recode = recode(hv236_person_recode, .missing = "Unknown/Other")) %>% 
+  qflextable() %>% 
+  set_header_labels(hv236_person_recode = "Water Collector", 
+                    num = "Total HHs") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+                 
 # Clean Water Walk Variable -----------------------------------------------
 data_aim1 <- data_aim1 %>% mutate(hv204 = case_when(
                            hv204 >= 996 ~ NA_integer_,
@@ -271,11 +298,6 @@ data_aim1 <- data_aim1 %>%
 
 
 # Output the datasets -----------------------------------------------------
-
-# Separate the data between Rural and Urban
-cat("There are", nrow(data_aim1 %>% filter(URBAN_RURA == "R")), "rural households")
-cat("There are", nrow(data_aim1 %>% filter(URBAN_RURA == "U")), "urban households")
-cat("There are", nrow(data_aim1 %>% filter(is.na(URBAN_RURA))), "households with missing U/R data")
 
 # Save the full dataset
 saveRDS(data_aim1, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.Rdata")
