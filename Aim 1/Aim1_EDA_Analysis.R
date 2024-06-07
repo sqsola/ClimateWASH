@@ -13,6 +13,7 @@ library(BSDA)
 library(ggborderline)
 library(gtsummary)
 library(sf)
+library(gt)
 library(tidyverse)
 
 # Set the location
@@ -30,8 +31,8 @@ if (location == "HPC") {
 }
 
 # Read in the datasets
-data_aim1 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.Rdata")
-urban <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/urban.Rdata")
+# data_aim1 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.Rdata")
+# urban <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/urban.Rdata")
 rural <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/rural.Rdata")
 
 # Create Rural Dataset ----------------------------------------------------
@@ -44,22 +45,6 @@ rural_final <- rural %>%
                filter(!is.na(hv204), hv204 != 0, hv204 != 995) %>% 
                # Filter out all infinitesimally small GPS points
                filter(!between(LATNUM, -0.0001, 0.0001))
-
-# This table shows which water source (hv201_source) only had missing data (NaN)
-# First, group by water source then only select those where avg is NaN
-# Then you're left with the number of households that rely on that water source
-rural %>% group_by(hv201_source) %>% 
-          summarize(num = n(), 
-                    avg_walk = mean(hv204, na.rm = TRUE)) %>% 
-          filter(is.nan(avg_walk)) %>% 
-          select(-avg_walk) %>% 
-          arrange(desc(num)) %>% 
-          qflextable() %>% 
-          set_header_labels(hv201_source = "Water Source", 
-                            num = "Total HHs") %>% 
-          theme_zebra() %>% theme_box() %>% 
-          align_nottext_col(align = "center", header = TRUE) %>%
-          align_text_col(align = "center", header = TRUE)
 
 # Mapping ------------------------------------------------------
 
@@ -248,23 +233,13 @@ ggplot(dual_table) +
 
 # The following graph is a grouped boxplot that measures
 # the water collection time by household combined wealth (hv270)
-# The first step is to relabel the hv270 variable so it's more intelligible
-# Then you set the levels so they're in order
-# Finally you create the boxplot
 rural_final %>%
-  filter(!is.na(hv270)) %>% 
-  mutate(hv270 = recode(hv270, "1" = "Poorest",
-                        "2" = "Poor",
-                        "3" = "Middle",
-                        "4" = "Rich",
-                        "5" = "Richest",
-                        .missing = "N/A")) %>% 
-  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest"))) %>%
+  filter(!is.na(hv270)) %>%
   ggplot(mapping = aes(x = factor(hv007), y = log(hv204), fill = factor(hv270))) +
           geom_boxplot() +
           labs(fill="SES Level") +
-          scale_fill_manual(values=c("Poorest"="#d7191c","Poor"="#fdae61",
-                                     "Middle"="#ffffbf","Rich"="#abdda4",
+          scale_fill_manual(values=c("Poorest"="#d7191c", "Poor"="#fdae61",
+                                     "Middle"="#ffffbf", "Rich"="#abdda4",
                                      "Richest"="#2b83ba")) +
           scale_y_continuous(expand = c(0, 0.05)) +
           xlab("Year") + ylab("Log (Water Collection Time)") + 
@@ -321,44 +296,40 @@ data_aim1 %>% group_by(kgc_course) %>%
               align_nottext_col(align = "center", header = TRUE) %>%
               align_text_col(align = "center", header = TRUE)
 
+# This table shows only the rural households
+# and which KG zone they belong in (fine resolution)
+rural_final %>% tabyl(kgc_fine) %>% 
+                adorn_pct_formatting() %>%
+                adorn_totals("row") %>%
+                replace_na(list(kgc_fine = "Unknown KGZ")) %>%
+                qflextable() %>% 
+                set_header_labels(kgc_fine = "KG Zone", n = "Number of HHs",
+                                  percent = "Total Percent", valid_percent = "Percent among Non-Missing")%>% 
+                theme_zebra() %>% theme_box() %>% 
+                align_nottext_col(align = "center", header = TRUE) %>%
+                align_text_col(align = "center", header = TRUE)
 
+# This table shows only the rural households
+# and which KG zone they belong in (course resolution)
+# along with the average water collection time in each zone
+rural_final %>% group_by(kgc_course) %>% 
+                summarise(num_hh = n(),
+                          percent = round((num_hh / nrow(rural_final)), 4)*100,
+                          avg_walk = round(mean(hv204, na.rm = TRUE), 2)) %>%
+                mutate(kgc_course = recode(kgc_course, .missing = "Unknown KGZ")) %>%
+                adorn_totals("row",,,,num_hh) %>% 
+                qflextable() %>% 
+                set_header_labels(kgc_course = "KG Zone", num_hh = "Number of Householdss",
+                                  percent = "Total Percent", avg_walk = "Avg Collect Time")%>% 
+                theme_zebra() %>% theme_box() %>% 
+                align_nottext_col(align = "center", header = TRUE) %>%
+                align_text_col(align = "center", header = TRUE)
 
+# Weather Correlation ----------------------------------------------------------------
 
+## Subset ------------------------------------------------------------------
 
-
-
-rural_final %>%
-  group_by(kgc_fine) %>% 
-  summarise(num_hh = n(),
-            percent = round((num_hh / nrow(rural_final)), 4)*100) %>%
-  mutate(kgc_fine = recode(kgc_fine, .missing = "Unknown KGZ")) %>%
-  adorn_totals("row") %>% 
-  qflextable() %>% 
-  set_header_labels(kgc_fine = "KG Zone", num_hh = "Number of HHs",
-                    percent = "Total Percent")%>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-rural_final %>%
-group_by(kgc_course) %>% 
-  summarise(num_hh = n(),
-            percent = round((num_hh / nrow(rural_final)), 4)*100,
-            avg_walk = round(mean(hv204, na.rm = TRUE), 2)) %>%
-  mutate(kgc_course = recode(kgc_course, .missing = "Unknown KGZ")) %>%
-  adorn_totals("row",,,,num_hh) %>% 
-  qflextable() %>% 
-  set_header_labels(kgc_course = "KG Zone", num_hh = "Number of HHs",
-                    percent = "Total Percent", avg_walk = "Avg Walk Time")%>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-
-
-# Correlation Graphs ----------------------------------------------------------------
-
-# Variable to subset
+# Weather variables to subset
 weather_var <- c("e_totalminus7",    "e_totalminus14",    "e_totalminus30",    "e_totalminus60",
                  "tp_totalminus7",   "tp_totalminus14",   "tp_totalminus30",   "tp_totalminus60",
                  "sro_totalminus7",  "sro_totalminus14",  "sro_totalminus30",  "sro_totalminus60",
@@ -369,113 +340,89 @@ weather_var <- c("e_totalminus7",    "e_totalminus14",    "e_totalminus30",    "
                  "lai_hv_avgminus7", "lai_hv_avgminus14", "lai_hv_avgminus30", "lai_hv_avgminus60",
                  "d2m_avgminus7",    "d2m_avgminus14",    "d2m_avgminus30",    "d2m_avgminus60")
 
-# Correlation for full data
-subset_dataaim1 <- dataaim1_nopipe %>% select(hv204, all_of(weather_var))
-          
-cor_dataaim1_focus <- subset_dataaim1 %>% 
-                      correlate() %>% 
-                      focus(hv204)
-
-cor_dataaim1_focus %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
-                       mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
-                       ggplot(aes(x = term, y = hv204)) + 
-                       geom_bar(stat = "identity", position = "identity", aes(fill = color)) +
-                       ylab("Correlation with Water Walk Time (HV204)") + 
-                       xlab("Variable") +
-                       scale_x_discrete(guide = guide_axis(angle = 30)) +
-                       scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
-
-# Corrplot
-subset_dataaim1 <- subset_dataaim1 %>% select(-hv204)
-
-cor_dataaim1_weather <-  cor(subset_dataaim1, use = "complete.obs")
-
-testRes <- cor.mtest(cor_dataaim1_weather, conf.level = 0.95)
-
-labelCol <-  c("purple", "purple", "purple", "purple", "black", "black", "black", "black")
-
-corrplot(cor_dataaim1_weather, p.mat = testRes$p, method = "square", order = "alphabet",
-         diag = TRUE, type = "lower", sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
-         insig = "label_sig", pch.col = "grey1", tl.col = labelCol)
-
-      
-# Correlation for rural data
+# Subset the rural dataset so it only includes the water collection time (hv204)
+# as well as all of the weather variables above.
 subset_rural <- rural_final %>% select(hv204, all_of(weather_var))
 
+## Focused Correlation -----------------------------------------------------
+
+# The focus() function from the "corrr" package finds the correlations
+# between all of the weather variables and the hv204 variable.
+# Finally, arrange the correlations from least to most
 cor_rural_focus <- subset_rural %>% 
                    correlate() %>% 
                    focus(hv204) %>% 
-                  arrange(hv204)
+                   arrange(hv204)
 
+# Create a brand new variable "color" and set this variable
+# so that each weather variable group has a set color association.
 cor_rural_focus <- cor_rural_focus %>%
-  mutate(color = case_when(
-    grepl("e", term) ~ "#e41a1c",
-    grepl("^sro$", term) ~ "#377eb8",
-    grepl("ssro", term) ~ "#4daf4a",
-    grepl("t2m", term) ~ "#984ea3",
-    grepl("tp", term) ~ "#ff7f00",
-    grepl("skt", term) ~ "#2b888f",
-    grepl("lai_lv", term) ~ "#a65628",
-    grepl("lai_hv", term) ~ "#f781bf",
-    grepl("d2m", term) ~ "#999999",
-    TRUE ~ "#377eb8"
-  ))
+                   mutate(color = case_when(
+                                  grepl("e", term) ~ "#e41a1c",
+                                  grepl("^sro_*", term) ~ "#377eb8",
+                                  grepl("^ssro_*", term) ~ "#4daf4a",
+                                  grepl("t2m", term) ~ "#984ea3",
+                                  grepl("tp", term) ~ "#ff7f00",
+                                  grepl("skt", term) ~ "#2b888f",
+                                  grepl("lai_lv", term) ~ "#a65628",
+                                  grepl("lai_hv", term) ~ "#f781bf",
+                                  grepl("d2m", term) ~ "#999999",
+                                  TRUE ~ "FAIL!!! TRY AGAIN"))
 
+# Save the color scheme to a character list
 color_chart <- cor_rural_focus$color
 
-cor_rural_focus %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
+# Plot the results from the focus() function
+# First, we reorder the weather variables so they're in order of correlation
+# Then we create a new variable to see if correlations are negative or positive
+# Then we fill the bars (fill = ) and color the bar outlines (color)
+# alpha is opacity
+# Then we define positive as blue and negative as red
+cor_rural_focus %>% mutate(term = fct_reorder(term, hv204)) %>%
                     mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
                     ggplot(aes(x = term, y = hv204)) + 
                     geom_bar(stat = "identity", position = "identity", aes(fill = color), color = color_chart, linewidth = 1, alpha = 0.7) +
-                    ylab("Correlation with Water Walk Time (HV204)") + 
+                    ylab("Correlation with Water Collection Time") + 
                     xlab("Variable") +
                     theme_bw() +
                     scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")+
                     theme(axis.text.x = element_text(angle = 55, hjust = 1, colour = color_chart, face = "bold", size = 11))
-                  
-# Corr Plot
-subset_rural <- rural_final %>% select(all_of(weather_var))
 
-cor_rural_weather <-  cor(subset_rural, use = "complete.obs")
+## Correlation Plot --------------------------------------------------------
 
-testRes <- cor.mtest(cor_rural_weather, conf.level = 0.95)
+# Find the correlation between all of the weather observations
+cor_rural_weather <- cor(subset_rural, use = "complete.obs")
 
-labelCol <-  c("purple", "purple", "purple", "purple", "black", "black", "black", "black")
+# Find the significance of the correlations between all the variables
+cor_test <- cor.mtest(cor_rural_weather, conf.level = 0.95)
 
-corrplot(cor_rural_weather, p.mat = testRes$p, method = "square", order = "alphabet",
+# Colors for the labels of the correlation matrix
+# We can do this since each group only has 4 variables per group
+label_colors <-  c("purple", "purple", "purple", "purple", "black", "black", "black", "black")
+
+# Create the correlation plot
+corrplot(cor_rural_weather, p.mat = cor_test$p, method = "square", order = "alphabet",
          diag = TRUE, type = "lower", sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
-         insig = "label_sig", pch.col = "grey1", tl.col = labelCol, tl.srt = 45)
+         insig = "label_sig", pch.col = "grey1", tl.col = label_colors, tl.srt = 45,
+         col=colorRampPalette(c("darkblue", "white", "darkred"))(200))
 
 
 
-# Correlation for urban data
-subset_urban <- urban_nopipe %>% select(hv204, all_of(weather_var))
-    
-cor_urban_focus <- subset_urban %>% 
-                   correlate() %>% 
-                   focus(hv204)
 
-cor_urban_focus %>% mutate(term = factor(term, levels = term[order(hv204)])) %>% 
-                    mutate(color = ifelse(hv204 < 0, "negative", "positive")) %>% 
-                    ggplot(aes(x = term, y = hv204)) + 
-                    geom_bar(stat = "identity", position = "identity", aes(fill = color)) +
-                    ylab("Correlation with Water Walk Time (HV204)") + 
-                    xlab("Variable") +
-                    scale_x_discrete(guide = guide_axis(angle = 30)) +
-                    scale_fill_manual(values = c(positive = "royalblue3", negative = "firebrick1"), guide = "none")
 
-# Corr Plot
-subset_urban <- subset_urban %>% select(-hv204)
 
-cor_urban_weather <-  cor(subset_urban, use = "complete.obs")
 
-testRes <- cor.mtest(cor_urban_weather, conf.level = 0.95)
 
-labelCol <-  c("purple", "purple", "purple", "purple", "black", "black", "black", "black")
 
-corrplot(cor_urban_weather, p.mat = testRes$p, method = "square", order = "alphabet",
-         diag = TRUE, type = "lower", sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
-         insig = "label_sig", pch.col = "grey1", tl.col = labelCol)
+
+
+
+
+
+
+
+
+
 
 # Person Carrying Water -------------------------------------------------
 
@@ -525,6 +472,28 @@ data_aim1 %>% group_by(kgc_course) %>%
   align_text_col(align = "center", header = TRUE)
 
 # Improved vs. Unimproved -------------------------------------------------
+
+
+# This table shows which water source (hv201_source) only had missing data (NaN)
+# First, group by water source then only select those where avg is NaN
+# Then you're left with the number of households that rely on that water source
+rural %>% group_by(hv201_source) %>% 
+  summarize(num = n(), 
+            avg_walk = mean(hv204, na.rm = TRUE)) %>% 
+  filter(is.nan(avg_walk)) %>% 
+  select(-avg_walk) %>% 
+  arrange(desc(num)) %>% 
+  qflextable() %>% 
+  set_header_labels(hv201_source = "Water Source", 
+                    num = "Total HHs") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+
+
+
+
 
 ##  Source of Water (decomposed)
 rural_final %>% 
@@ -695,79 +664,298 @@ qqnorm(log(rural_final$hv204), pch = 1)
 qqline(log(rural_final$hv204), col = "red", lwd = 3)
 
 
-rural_final <- rural_final %>%
-  mutate(hv270 = case_match(hv270,
-                            1 ~ "Poorest",
-                            2 ~ "Poor",
-                            3 ~ "Middle Class",
-                            4 ~ "Rich",
-                            5 ~ "Richest",
-                            .default = NA,
-                            .ptype = factor(levels = c(
-                              "Poorest", "Poor", "Middle Class",
-                              "Rich", "Richest"))))
+
 
 theme_gtsummary_journal(journal = "jama")
 
-# model
-model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode +  hv201_improved +
-                    (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
-            tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precip", hv270 ~ "SES",
-                                        hv236_person_recode ~ "Person Carrying Water",
-                                        hv201_improved ~ "Improved Water Source",
-                                        kgc_course ~ "Koppen-Geiger Zone")) %>% bold_labels()
 
-model_tp14 <- lmer(log(hv204) ~ tp_totalminus14 + hv270 + kgc_course + hv236_person_recode +  hv201_improved +
-                    (1|name_year/hv001), data = rural_final, REML = FALSE) %>% tbl_regression(label = list(tp_totalminus14 ~ "14 Day Precip", hv270 ~ "SES",
-                                                                                              hv236_person_recode ~ "Person Carrying Water",
-                                                                                              hv201_improved ~ "Improved Water Source",
-                                                                                              kgc_course ~ "Koppen-Geiger Zone"))%>%
-  bold_labels()
+
+## TP Model ----------------------------------------------------------------
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+             (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+             tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precip", hv270 ~ "SES",
+                                         hv236_person_recode ~ "Person Carrying Water",
+                                         hv201_improved ~ "Improved Water Source",
+                                         kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_tp14 <- lmer(log(hv204) ~ tp_totalminus14 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+              (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+              tbl_regression(label = list(tp_totalminus14 ~ "14 Day Precip", hv270 ~ "SES",
+                                          hv236_person_recode ~ "Person Carrying Water",
+                                          hv201_improved ~ "Improved Water Source",
+                                          kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
 model_tp30 <- lmer(log(hv204) ~ tp_totalminus30 + hv270 + kgc_course + hv236_person_recode + hv201_improved  +
-                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% tbl_regression(label = list(tp_totalminus30 ~ "30 Day Precip", hv270 ~ "SES",
-                                                                                               hv236_person_recode ~ "Person Carrying Water",
-                                                                                               hv201_improved ~ "Improved Water Source",
-                                                                                               kgc_course ~ "Koppen-Geiger Zone"))%>%
-  bold_labels()
-model_tp60 <- lmer(log(hv204) ~ tp_totalminus60 + hv270 + kgc_course + hv236_person_recode +  hv201_improved +
-                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% tbl_regression(label = list(tp_totalminus60 ~ "60 Day Precip", hv270 ~ "SES",
-                                                                                               hv236_person_recode ~ "Person Carrying Water",
-                                                                                               hv201_improved ~ "Improved Water Source",
-                                                                                               kgc_course ~ "Koppen-Geiger Zone"))%>%
-  bold_labels()
+              (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+              tbl_regression(label = list(tp_totalminus30 ~ "30 Day Precip", hv270 ~ "SES",
+                                          hv236_person_recode ~ "Person Carrying Water",
+                                          hv201_improved ~ "Improved Water Source",
+                                          kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()            
+
+model_tp60 <- lmer(log(hv204) ~ tp_totalminus60 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+              (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+              tbl_regression(label = list(tp_totalminus60 ~ "60 Day Precip", hv270 ~ "SES",
+                                          hv236_person_recode ~ "Person Carrying Water",
+                                          hv201_improved ~ "Improved Water Source",
+                                          kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
 
 
-test <- tbl_merge(
-  tbls = list(model_tp7, model_tp14, model_tp30, model_tp60),
-  tab_spanner = c("**Precipitation, 7**", "**Precipitation, 14**",
-                  "**Precipitation, 30**", "**Precipitation, 60**"))%>%
-  modify_table_body(
-    ~.x %>% 
-      dplyr::arrange(factor(var_label, levels =
-        c("7 Day Precip", "14 Day Precip", "30 Day Precip", "60 Day Precip",
-          "SES", "Koppen-Geiger Zone", "Improved Water Source", "Person Carrying Water"))))
+tp_models <- tbl_merge(tbls = list(model_tp7, model_tp14, model_tp30, model_tp60),
+                       tab_spanner = c("**Precipitation, 7**", "**Precipitation, 14**",
+                                       "**Precipitation, 30**", "**Precipitation, 60**")) %>%
+                       modify_table_body(~.x %>% 
+                       dplyr::arrange(factor(var_label, levels =
+                       c("7 Day Precip", "14 Day Precip", "30 Day Precip", "60 Day Precip",
+                         "SES", "Koppen-Geiger Zone", "Improved Water Source", "Person Carrying Water"))))
 
 
-test <- test %>% as_gt()
+tp_models <- tp_models %>% as_gt()
 
 
-test %>% 
+tp_models %>% 
   tab_style(
     style = cell_borders(
       sides = c("left", "right"),
       color = "gray80",
       weight = px(2),
-      style = "solid"
-    ),
+      style = "solid"),
     locations = list(cells_body(),
                      cells_column_labels(),
-                     cells_column_spanners())
-  )
+                     cells_column_spanners()))
+
+## SRO Model ----------------------------------------------------------------
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+             (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+             tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
+                                         hv236_person_recode ~ "Person Carrying Water",
+                                         hv201_improved ~ "Improved Water Source",
+                                         kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_sro14 <- lmer(log(hv204) ~ sro_totalminus14 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus14 ~ "14 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_sro30 <- lmer(log(hv204) ~ sro_totalminus30 + hv270 + kgc_course + hv236_person_recode + hv201_improved  +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus30 ~ "30 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()            
+
+model_sro60 <- lmer(log(hv204) ~ sro_totalminus60 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus60 ~ "60 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+
+sro_models <- tbl_merge(tbls = list(model_sro7, model_sro14, model_sro30, model_sro60),
+                       tab_spanner = c("**SRO, 7**", "**SRO, 14**",
+                                       "**SRO, 30**", "**SRO, 60**")) %>%
+  modify_table_body(~.x %>% 
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("7 Day SRO", "14 Day SRO", "30 Day SRO", "60 Day SRO",
+                                                "SES", "Koppen-Geiger Zone", "Improved Water Source", "Person Carrying Water"))))
+
+
+sro_models <- sro_models %>% as_gt()
+
+
+sro_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+## Evaporation Model ----------------------------------------------------------------
+
+model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_e14 <- lmer(log(hv204) ~ e_totalminus14 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                      (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus14 ~ "14 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_e30 <- lmer(log(hv204) ~ e_totalminus30 + hv270 + kgc_course + hv236_person_recode + hv201_improved  +
+                      (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus30 ~ "30 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()            
+
+model_e60 <- lmer(log(hv204) ~ e_totalminus60 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                      (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus60 ~ "60 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+
+evap_models <- tbl_merge(tbls = list(model_e7, model_e14, model_e30, model_e60),
+                        tab_spanner = c("**Evaporation, 7**", "**Evaporation, 14**",
+                                        "**Evaporation, 30**", "**Evaporation, 60**")) %>%
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("7 Day Evaporation", "14 Day Evaporation", "30 Day Evaporation", "60 Day Evaporation",
+                                                "SES", "Koppen-Geiger Zone", "Improved Water Source", "Person Carrying Water"))))
+
+
+evap_models <- evap_models %>% as_gt()
+
+
+evap_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+## Skin Temperature Model ----------------------------------------------------------------
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                   (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus7 ~ "7 Day SKT Avg", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_skt14 <- lmer(log(hv204) ~ skt_avgminus14 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                    (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus14 ~ "14 Day SKT Avg", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_skt30 <- lmer(log(hv204) ~ skt_avgminus30 + hv270 + kgc_course + hv236_person_recode + hv201_improved  +
+                    (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus30 ~ "30 Day SKT Avg", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()            
+
+model_skt60 <- lmer(log(hv204) ~ skt_avgminus60 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                    (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus60 ~ "60 Day SKT Avg", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+
+skt_models <- tbl_merge(tbls = list(model_skt7, model_skt14, model_skt30, model_skt60),
+                         tab_spanner = c("**Skin Temp, 7**", "**Skin Temp, 14**",
+                                         "**Skin Temp, 30**", "**Skin Temp, 60**")) %>%
+  modify_table_body(~.x %>%
+                    dplyr::arrange(factor(var_label, levels =
+                                            c("7 Day SKT Avg", "14 Day SKT Avg", "30 Day SKT Avg", "60 Day SKT Avg",
+                                              "SES", "Koppen-Geiger Zone", "Improved Water Source", "Person Carrying Water"))))
+
+
+skt_models <- skt_models %>% as_gt()
+
+
+skt_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+## Combined ----------------------------------------------------------------
 
 
 
-class(test)library(DHARMa)
-simoutput <- simulateResiduals(fittedModel = model, plot = F)
+# 2003 test
+
+rural_final <- rural_final %>% filter(hv007 >= 2010)
+  
+rural_final %>% tabyl(hv007)
+
+
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                    (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precipitation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                   (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              hv201_improved ~ "Improved Water Source",
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_e7, model_skt7),
+                        tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
+                                        "**Evap, 7**", "**Skin Temp, 7**")) %>%
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("7 Day Precipitation", "7 Day SRO", "7 Day Evaporation", "7 Day Skin Temp",
+                                                "SES", "Koppen-Geiger Zone", "Improved Water Source", "Person Carrying Water"))))
+
+
+combined_models <- combined_models %>% as_gt()
+
+
+combined_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+
+## Testing ----------------------------------------------------------------
+
+class(test)
+
+library(DHARMa)
+simoutput <- simulateResiduals(fittedModel = model_tp7, plot = F)
 
 plot(simoutput)
 
@@ -786,3 +974,132 @@ plot(model, resid(., scaled=TRUE) ~ fitted(.), abline = 0, pch = 16, xlab = "Fit
 qqnorm(resid(model), pch = 16)
 qqline(resid(model), col = 2)
 
+
+
+
+
+
+
+
+
+
+
+
+
+## Combined Surface Water Only ----------------------------------------------------------------
+# Split the dataset into surface water and non-surface water
+
+surface <- rural_final %>% filter(hv201_sourcecat == "Surface water/River")
+nonsurface <- rural_final %>% filter(!hv201_sourcecat == "Surface water/River")
+
+
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode +
+                    (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precipitation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                     (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                   (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode +
+                     (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_e7, model_skt7),
+                             tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
+                                             "**Evap, 7**", "**Skin Temp, 7**")) %>%
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("7 Day Precipitation", "7 Day SRO", "7 Day Evaporation", "7 Day Skin Temp",
+                                                "SES", "Koppen-Geiger Zone", "Person Carrying Water"))))
+
+
+combined_models <- combined_models %>% as_gt()
+
+
+combined_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+
+
+
+
+
+
+
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode +
+                    (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precipitation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                     (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                   (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode +
+                     (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_e7, model_skt7),
+                             tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
+                                             "**Evap, 7**", "**Skin Temp, 7**")) %>%
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("7 Day Precipitation", "7 Day SRO", "7 Day Evaporation", "7 Day Skin Temp",
+                                                "SES", "Koppen-Geiger Zone", "Person Carrying Water"))))
+
+
+combined_models <- combined_models %>% as_gt()
+
+
+combined_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
