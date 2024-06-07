@@ -30,10 +30,10 @@ data_aim1 <- readRDS("~/data-mdavis65/steven_sola/4_HHlevel/hh_combined.Rdata")
 # Change the "Year 0" to 2000 (GA_00 dataset)
 # Change the two digit years into four digits by adding 1900
 data_aim1 <- data_aim1 %>% mutate(hv007 = case_when(
-                             hv007 == 1   ~ 2001,
-                             hv007 == 0   ~ 2000,
-                             hv007 < 100  ~ hv007+1900,
-                             TRUE ~ hv007))
+                           hv007 == 1   ~ 2001,
+                           hv007 == 0   ~ 2000,
+                           hv007 < 100  ~ hv007+1900,
+                           TRUE         ~ hv007))
 
 # HV201 Source ------------------------------------------------------------
 
@@ -111,8 +111,7 @@ rm(list = setdiff(ls(), c("countries", "codebook", "data_aim1")))
 codebook <- do.call(rbind, codebook)
 
 # Set the 96's in the codebook to "Other"
-codebook <- codebook %>% mutate(
-                hv201_source = if_else(hv201_source == 96, "Other", hv201_source))
+codebook <- codebook %>% mutate(hv201_source = if_else(hv201_source == 96, "Other", hv201_source))
 
 # Clean HV201 Source ------------------------------------------------------
 
@@ -142,15 +141,15 @@ data_aim1 <- data_aim1 %>% mutate(hv201_sourcecat = case_when(
 
 # Categorize the source of the water. 
 data_aim1 <- data_aim1 %>% mutate(hv201_improved = case_when(
-                              hv201_sourcecat %in% c("Unprotected", "Vendor", "Bottled water",
-                                                     "Surface water/River", "Spring", "Well") ~ "Unimproved",
-                              hv201_sourcecat %in% c("Protected/Improved", "Borehole", "Piped", "Rainwater") ~ "Improved",
-                              TRUE ~ "Other/Unknown"))
-      
+                                  hv201_sourcecat %in% c("Unprotected", "Vendor", "Bottled water",
+                                                         "Surface water/River", "Spring", "Well") ~ "Unimproved",
+                                  hv201_sourcecat %in% c("Protected/Improved", "Borehole", "Piped", "Rainwater") ~ "Improved",
+                                  TRUE ~ "Other/Unknown"))
+            
 # Check the coding
 test <- data_aim1 %>% select(hv201_source, hv201_sourcecat, hv201_improved) %>% 
-              arrange(hv201_source, hv201_sourcecat, hv201_improved) %>% 
-              distinct(hv201_source, hv201_sourcecat, hv201_improved, .keep_all = FALSE)
+                      arrange(hv201_source, hv201_sourcecat, hv201_improved) %>% 
+                      distinct(hv201_source, hv201_sourcecat, hv201_improved, .keep_all = FALSE)
 
 
 data.table::fwrite(test, "water_source.csv")
@@ -225,36 +224,14 @@ data_aim1 <- data_aim1 %>% left_join(codebook, by = join_by(name_year, hv236 == 
 # Clean the Person Carrying Water Variable --------------------------------
 tabyl(data_aim1$hv236_person)
 
-
-data_aim1 %>% group_by(hv236_person) %>% 
-  summarize(num = n()) %>% 
-  mutate(hv236_person = recode(hv236_person, .missing = "Unknown")) %>% 
-  qflextable() %>% 
-  set_header_labels(hv236_person = "Water Collector", 
-                    num = "Total HHs") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-
 data_aim1 <- data_aim1 %>% mutate(hv236_person_recode = case_when(
-                 hv236_person %in% c("Other", "other", "Don't know",
-                                     "Door to door water seller", "Water vendor") ~ NA_character_,
-                 hv236_person %in% c("All members", "Any household member") ~ "Any member",
-                 hv236_person %in% c("Male age 15-17 years old", "Female age 15-17 years old", 
-                                     "Female and male children equally", "Female and male child under 15 years old") ~ "Female and male children",
-                 hv236_person == "Adult woman with child" ~ "Adult woman",
-                 TRUE ~ hv236_person))
-
-data_aim1 %>% group_by(hv236_person_recode) %>% 
-  summarize(num = n()) %>% 
-  mutate(hv236_person_recode = recode(hv236_person_recode, .missing = "Unknown/Other")) %>% 
-  qflextable() %>% 
-  set_header_labels(hv236_person_recode = "Water Collector", 
-                    num = "Total HHs") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
+                           hv236_person %in% c("Other", "other", "Don't know",
+                                               "Door to door water seller", "Water vendor") ~ NA_character_,
+                           hv236_person %in% c("All members", "Any household member") ~ "Any member",
+                           hv236_person %in% c("Male age 15-17 years old", "Female age 15-17 years old", 
+                                               "Female and male children equally", "Female and male child under 15 years old") ~ "Female and male children",
+                           hv236_person == "Adult woman with child" ~ "Adult woman",
+                           TRUE ~ hv236_person))
                  
 # Clean Water Walk Variable -----------------------------------------------
 data_aim1 <- data_aim1 %>% mutate(hv204 = case_when(
@@ -265,37 +242,48 @@ data_aim1 <- data_aim1 %>% mutate(hv204 = case_when(
 
 # Categorize the Koppen-Geiger Climate Classification System into fine details
 data_aim1 <- data_aim1 %>% mutate(kgc_fine = case_when(
-                              kgc == "Af"  ~ "Tropical Rainforest",
-                              kgc == "Am"  ~ "Tropical Monsoon",
-                              kgc == "As"  ~ "Tropical Savanna, Dry Summer",
-                              kgc == "Aw"  ~ "Tropical Savanna Dry Winter",
-                              kgc == "BSh" ~ "Dry Semi-Arid Hot",
-                              kgc == "BSk" ~ "Dry Semi-Arid Cold",
-                              kgc == "BWh" ~ "Dry Arid Hot",
-                              kgc == "BWk" ~ "Dry Arid Desert Cold",
-                              kgc == "Cfa" ~ "Temperate No Dry Season Hot Summer",
-                              kgc == "Cfb" ~ "Temperate No Dry Season Warm Summer",
-                              kgc == "Csa" ~ "Temperate Dry Summer Hot Summer",
-                              kgc == "Csb" ~ "Temperate Dry Summer Warm Summer",
-                              kgc == "Cwa" ~ "Temperate Dry Winter Hot Summer",
-                              kgc == "Cwb" ~ "Temperate Dry Winter Warm Summer",
-                              kgc == "Climate Zone info missing" ~ NA_character_,
-                              TRUE ~ NA_character_))
+                                  kgc == "Af"  ~ "Tropical Rainforest",
+                                  kgc == "Am"  ~ "Tropical Monsoon",
+                                  kgc == "As"  ~ "Tropical Savanna, Dry Summer",
+                                  kgc == "Aw"  ~ "Tropical Savanna Dry Winter",
+                                  kgc == "BSh" ~ "Dry Semi-Arid Hot",
+                                  kgc == "BSk" ~ "Dry Semi-Arid Cold",
+                                  kgc == "BWh" ~ "Dry Arid Hot",
+                                  kgc == "BWk" ~ "Dry Arid Desert Cold",
+                                  kgc == "Cfa" ~ "Temperate No Dry Season Hot Summer",
+                                  kgc == "Cfb" ~ "Temperate No Dry Season Warm Summer",
+                                  kgc == "Csa" ~ "Temperate Dry Summer Hot Summer",
+                                  kgc == "Csb" ~ "Temperate Dry Summer Warm Summer",
+                                  kgc == "Cwa" ~ "Temperate Dry Winter Hot Summer",
+                                  kgc == "Cwb" ~ "Temperate Dry Winter Warm Summer",
+                                  kgc == "Climate Zone info missing" ~ NA_character_,
+                                  TRUE ~ NA_character_))
 
 # Categorize the Koppen-Geiger Climate Classification System into course details
 data_aim1 <- data_aim1 %>% mutate(kgc_course = case_when(
-                              kgc %in% c("Af", "Am", "As", "Aw") ~ "Tropical",
-                              kgc %in% c("BSh", "BSk", "BWh", "BWk") ~ "Dry",
-                              kgc %in% c("Cfa", "Cfb", "Csa", "Cwa", "Cwb") ~ "Temperate",
-                              kgc == "Climate Zone info missing" ~ NA_character_,
-                              TRUE ~ NA_character_))
+                                  kgc %in% c("Af", "Am", "As", "Aw") ~ "Tropical",
+                                  kgc %in% c("BSh", "BSk", "BWh", "BWk") ~ "Dry",
+                                  kgc %in% c("Cfa", "Cfb", "Csa", "Cwa", "Cwb") ~ "Temperate",
+                                  kgc == "Climate Zone info missing" ~ NA_character_,
+                                  TRUE ~ NA_character_))
 
 
 # Coalesce the wlthind5 and hv270 variables -------------------------------
 
-data_aim1 <- data_aim1 %>%
-             mutate(hv270 = coalesce(wlthind5, hv270))
+data_aim1 <- data_aim1 %>% mutate(hv270 = coalesce(wlthind5, hv270))
 
+# Clean the SES Variable --------------------------------------------------
+
+data_aim1 <- data_aim1 %>%
+             mutate(hv270 = case_match(hv270,
+                            1 ~ "Poorest",
+                            2 ~ "Poor",
+                            3 ~ "Middle",
+                            4 ~ "Rich",
+                            5 ~ "Richest",
+                            .default = NA,
+                            .ptype = factor(levels = c("Poorest", "Poor", 
+                                                       "Middle", "Rich", "Richest"))))
 
 # Output the datasets -----------------------------------------------------
 
