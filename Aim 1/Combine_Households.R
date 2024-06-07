@@ -12,9 +12,12 @@ library(stringr)
 library(sf)
 library(readxl)
 library(data.table)
-library(ethiopianDate, lib = "rlibs/R/ethiopianDate")
+library(ethiopianDate)
 
-countries <- read_excel("Country_Index_HPC.xlsx")
+# Read in the file that lists all countries
+source("countries.R") 
+
+countries <- countries %>% filter(country == "Ethiopia") %>% slice(3:5)
 
 for(entry in 1:nrow(countries)) {
   
@@ -139,57 +142,125 @@ accum_var <- c("e", "sro", "ssro", "tp")
 instant_var <- c("t2m", "skt", "d2m", "lai_lv", "lai_hv")
 
 # For loop for finding the total for the past 1 week, 2 weeks, 4 weeks, and 8 weeks
+# As well as the 1 week lag, 2 week lag, 1-2 week lag, 2-3 week lag, and 3 week lag
 # As well as the 90th, 95th, 99th, and 99.9th percentile
 for (weather_var_accum in accum_var) {
-        weather_final <- weather_final %>%  
+        weather_final <- weather_final %>%
                  rowwise() %>%
                  mutate(!!paste0(weather_var_accum,"_totalminus7"):=sum(across(num_range(paste0(weather_var_accum,"_"), 1:7)))) %>%
                  mutate(!!paste0(weather_var_accum,"_totalminus14"):=sum(across(num_range(paste0(weather_var_accum,"_"), 1:14)))) %>%
                  mutate(!!paste0(weather_var_accum,"_totalminus30"):=sum(across(num_range(paste0(weather_var_accum,"_"), 1:30)))) %>%
-                 mutate(!!paste0(weather_var_accum,"_totalminus60"):=sum(across(num_range(paste0(weather_var_accum,"_"), 1:60)))) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus7_90"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.9) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus7_95"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.95) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus7_99"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.99) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus7_999"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.999) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus14_90"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.9) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus14_95"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.95) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus14_99"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.99) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus14_999"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.999) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus30_90"):=.data[[!!paste0(weather_var_accum,"_totalminus30")]] * 0.9) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus30_95"):=.data[[!!paste0(weather_var_accum,"_totalminus30")]] * 0.95) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus30_99"):=.data[[!!paste0(weather_var_accum,"_totalminus30")]] * 0.99) %>% 
+                 mutate(!!paste0(weather_var_accum,"_totalminus60"):=sum(across(num_range(paste0(weather_var_accum,"_"), 1:60)))) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_14"):=sum(across(num_range(paste0(weather_var_accum,"_"), 8:14)))) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_21"):=sum(across(num_range(paste0(weather_var_accum,"_"), 15:21)))) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_21"):=sum(across(num_range(paste0(weather_var_accum,"_"), 8:21)))) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_28"):=sum(across(num_range(paste0(weather_var_accum,"_"), 15:28)))) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus22_28"):=sum(across(num_range(paste0(weather_var_accum,"_"), 22:28)))) %>%
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus7_90"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus7_95"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus7_99"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus7_999"):=.data[[!!paste0(weather_var_accum,"_totalminus7")]] * 0.999) %>%
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus14_90"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus14_95"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus14_99"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus14_999"):=.data[[!!paste0(weather_var_accum,"_totalminus14")]] * 0.999) %>%
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus30_90"):=.data[[!!paste0(weather_var_accum,"_totalminus30")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus30_95"):=.data[[!!paste0(weather_var_accum,"_totalminus30")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus30_99"):=.data[[!!paste0(weather_var_accum,"_totalminus30")]] * 0.99) %>%
                  mutate(!!paste0(weather_var_accum,"_totalminus30_999"):=.data[[!!paste0(weather_var_accum,"_totalminus30")]] * 0.999)%>%
-                 mutate(!!paste0(weather_var_accum,"_totalminus60_90"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.9) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus60_95"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.95) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus60_99"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.99) %>% 
-                 mutate(!!paste0(weather_var_accum,"_totalminus60_999"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.999)
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus60_90"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus60_95"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus60_99"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus60_999"):=.data[[!!paste0(weather_var_accum,"_totalminus60")]] * 0.999) %>%
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_14_90"):=.data[[!!paste0(weather_var_accum,"_totalminus8_14")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_14_95"):=.data[[!!paste0(weather_var_accum,"_totalminus8_14")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_14_99"):=.data[[!!paste0(weather_var_accum,"_totalminus8_14")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_14_999"):=.data[[!!paste0(weather_var_accum,"_totalminus8_14")]] * 0.999) %>%
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_21_90"):=.data[[!!paste0(weather_var_accum,"_totalminus15_21")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_21_95"):=.data[[!!paste0(weather_var_accum,"_totalminus15_21")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_21_99"):=.data[[!!paste0(weather_var_accum,"_totalminus15_21")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_21_999"):=.data[[!!paste0(weather_var_accum,"_totalminus15_21")]] * 0.999) %>%
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_21_90"):=.data[[!!paste0(weather_var_accum,"_totalminus8_21")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_21_95"):=.data[[!!paste0(weather_var_accum,"_totalminus8_21")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_21_99"):=.data[[!!paste0(weather_var_accum,"_totalminus8_21")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus8_21_999"):=.data[[!!paste0(weather_var_accum,"_totalminus8_21")]] * 0.999) %>%
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_28_90"):=.data[[!!paste0(weather_var_accum,"_totalminus15_28")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_28_95"):=.data[[!!paste0(weather_var_accum,"_totalminus15_28")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_28_99"):=.data[[!!paste0(weather_var_accum,"_totalminus15_28")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus15_28_999"):=.data[[!!paste0(weather_var_accum,"_totalminus15_28")]] * 0.999) %>% 
+
+                 mutate(!!paste0(weather_var_accum,"_totalminus22_28_90"):=.data[[!!paste0(weather_var_accum,"_totalminus22_28")]] * 0.9) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus22_28_95"):=.data[[!!paste0(weather_var_accum,"_totalminus22_28")]] * 0.95) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus22_28_99"):=.data[[!!paste0(weather_var_accum,"_totalminus22_28")]] * 0.99) %>%
+                 mutate(!!paste0(weather_var_accum,"_totalminus22_28_999"):=.data[[!!paste0(weather_var_accum,"_totalminus22_28")]] * 0.999)
 }
 
 for (weather_var_instant in instant_var) {
-          weather_final <- weather_final %>%  
+          weather_final <- weather_final %>%
                   rowwise() %>%
                   mutate(!!paste0(weather_var_instant,"_avgminus7"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 1:7))))/7) %>%
                   mutate(!!paste0(weather_var_instant,"_avgminus14"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 1:14))))/14) %>%
                   mutate(!!paste0(weather_var_instant,"_avgminus30"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 1:30))))/30) %>%
-                  mutate(!!paste0(weather_var_instant,"_avgminus60"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 1:60))))/60) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus7_90"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.9) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus7_95"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.95) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus7_99"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.99) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus7_999"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.999) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus14_90"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.9) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus14_95"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.95) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus14_99"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.99) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus14_999"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.999) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus30_90"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.9) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus30_95"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.95) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus30_99"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.99) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus30_999"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.999)%>%
-                  mutate(!!paste0(weather_var_instant,"_avgminus60_90"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.9) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus60_95"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.95) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus60_99"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.99) %>% 
-                  mutate(!!paste0(weather_var_instant,"_avgminus60_999"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.999)
-}
+                  mutate(!!paste0(weather_var_instant,"_avgminus60"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 1:60))))/60) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_14"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 8:14))))/7) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_21"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 15:21))))/7) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_21"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 8:21))))/14) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_28"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 15:28))))/14) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus22_28"):=(sum(across(num_range(paste0(weather_var_instant,"_"), 22:28))))/7) %>%
 
+                  mutate(!!paste0(weather_var_instant,"_avgminus7_90"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus7_95"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus7_99"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus7_999"):=.data[[!!paste0(weather_var_instant,"_avgminus7")]] * 0.999) %>%
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus14_90"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus14_95"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus14_99"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus14_999"):=.data[[!!paste0(weather_var_instant,"_avgminus14")]] * 0.999) %>%
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus30_90"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus30_95"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus30_99"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus30_999"):=.data[[!!paste0(weather_var_instant,"_avgminus30")]] * 0.999)%>%
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus60_90"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus60_95"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus60_99"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus60_999"):=.data[[!!paste0(weather_var_instant,"_avgminus60")]] * 0.999) %>%
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_14_90"):=.data[[!!paste0(weather_var_instant,"_avgminus8_14")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_14_95"):=.data[[!!paste0(weather_var_instant,"_avgminus8_14")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_14_99"):=.data[[!!paste0(weather_var_instant,"_avgminus8_14")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_14_999"):=.data[[!!paste0(weather_var_instant,"_avgminus8_14")]] * 0.999) %>%
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_21_90"):=.data[[!!paste0(weather_var_instant,"_avgminus15_21")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_21_95"):=.data[[!!paste0(weather_var_instant,"_avgminus15_21")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_21_99"):=.data[[!!paste0(weather_var_instant,"_avgminus15_21")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_21_999"):=.data[[!!paste0(weather_var_instant,"_avgminus15_21")]] * 0.999) %>%
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_21_90"):=.data[[!!paste0(weather_var_instant,"_avgminus8_21")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_21_95"):=.data[[!!paste0(weather_var_instant,"_avgminus8_21")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_21_99"):=.data[[!!paste0(weather_var_instant,"_avgminus8_21")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus8_21_999"):=.data[[!!paste0(weather_var_instant,"_avgminus8_21")]] * 0.999) %>%
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_28_90"):=.data[[!!paste0(weather_var_instant,"_avgminus15_28")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_28_95"):=.data[[!!paste0(weather_var_instant,"_avgminus15_28")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_28_99"):=.data[[!!paste0(weather_var_instant,"_avgminus15_28")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus15_28_999"):=.data[[!!paste0(weather_var_instant,"_avgminus15_28")]] * 0.999) %>% 
+
+                  mutate(!!paste0(weather_var_instant,"_avgminus22_28_90"):=.data[[!!paste0(weather_var_instant,"_avgminus22_28")]] * 0.9) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus22_28_95"):=.data[[!!paste0(weather_var_instant,"_avgminus22_28")]] * 0.95) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus22_28_99"):=.data[[!!paste0(weather_var_instant,"_avgminus22_28")]] * 0.99) %>%
+                  mutate(!!paste0(weather_var_instant,"_avgminus22_28_999"):=.data[[!!paste0(weather_var_instant,"_avgminus22_28")]] * 0.999)
+}
 
 # Merge Weather and Survey ------------------------------------------------
 
@@ -208,7 +279,17 @@ full <- full %>% relocate(name_year, .before = hhid)
 full <- zap_labels(full)
 
 # Drop all the HV1xx variables
-full <- full %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry", "sb")))
+full <- full %>% select(-contains(c("HV1", "hvidx", "hml", "hb", "idx", "sh", "ha", "hc", "geometry", "sb"))) %>% 
+                 select(-starts_with(c("sm", "scweight", "hfs", "sent", "s20", "chl",
+                                       "mlweight", "ho", "schweigh", "hd",
+                                       "spa", "sus", "sw", "sah", "OBJECTID", "sc", "sv",
+                                       "hdis", "sgrad", "sleve", "hvc", "sgam", "sden",
+                                       "miil", "elig", "hk", "hy", "he", "sn", "ret",
+                                       "sy", "sa", "tpv", "sp", "stest", "hm",
+                                       "slquest", "slint", "sltrans", "stot", "ssc", "sl",
+                                       "rsc", "hs", "ssy", "sdeath", "seel", "sdhs", "s12", "s21"))) %>%
+                 select(-matches("[s][0-9]{3}", "[hs][0-9]{3}"))
+
 
 # Write the final dataset to the main folder
 fwrite(full, file = paste0("~/data-mdavis65/steven_sola/4_HHlevel/CSV/", name_year,"_hhweather.csv"))
@@ -227,7 +308,6 @@ rm (list=setdiff(ls(), c("countries", "location")))
 
 }
 
-
 # Combing HH Files --------------------------------------------------------
 
 # Set the working directory to where the Rdata files are stored
@@ -241,18 +321,6 @@ all_data <- lapply(hh_files, readRDS, .GlobalEnv)
 
 # combine all the files together
 hh_combined <- rbindlist(all_data, use.names = T, fill = T)
-
-# Clean the variables that aren't needed
-hh_combined <- hh_combined %>%
-                    select(-starts_with(c("sm", "scweight", "hfs", "sent", "s20", "chl",
-                                          "mlweight", "ho", "schweigh", "hd",
-                                          "spa", "sus", "sw", "sah", "OBJECTID", "sc", "sv",
-                                          "hdis", "sgrad", "sleve", "hvc", "sgam", "sden",
-                                          "miil", "elig", "hk", "hy", "he", "sn", "ret",
-                                          "sy", "sa", "tpv", "sp", "stest", "hm",
-                                          "slquest", "slint", "sltrans", "stot", "ssc", "sl",
-                                          "rsc", "hs", "ssy", "sdeath", "seel", "sdhs", "s12", "s21"))) %>%
-                    select(-matches("[s][0-9]{3}", "[hs][0-9]{3}"))
 
 saveRDS(hh_combined, "~/data-mdavis65/steven_sola/4_HHlevel/hh_combined.Rdata")
 fwrite(hh_combined, file = "~/data-mdavis65/steven_sola/4_HHlevel/hh_combined.csv")
