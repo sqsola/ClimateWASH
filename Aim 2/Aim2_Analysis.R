@@ -8,6 +8,8 @@ library(corrr)
 library(corrplot)
 library(lme4)
 library(gtsummary)
+library(gt)
+library()
 library(ggVennDiagram)
 library(tidyverse)
 
@@ -26,9 +28,10 @@ if (location == "HPC") {
 }
 
 # Read in the rural datasets
-rural <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural.rds")
-rural_hh <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural_hh.rds")
-under5_dia <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_dia.rds")
+rural         <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural.rds")
+rural_hh      <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural_hh.rds")
+under5_animal <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_animal.rds")
+under5_dia    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_dia.rds")
 
 # Animals by household ----------------------------------------------------
 
@@ -85,7 +88,9 @@ under5_dia <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/u
   align_text_col(align = "center", header = TRUE)
 
 
-# Venn Diagram 4 way ------------------------------------------------------------
+# Venn Diagrams -----------------------------------------------------------
+
+## Venn Diagram 4 way -----------------------------------------------------
 rural_2 <- rural_hh %>% 
   ungroup() %>% 
   select(bull_cow_cattle_present, horse_donkey_camel_present,       
@@ -103,7 +108,7 @@ ggVennDiagram(my_list, label_alpha = 0, set_color = c("blue","darkred","darkgree
   guides(fill = guide_legend(title = "Household Count")) +
   theme(legend.position = "bottom")
 
-# Venn Diagram 5 way ------------------------------------------------------------
+## Venn Diagram 5 way -----------------------------------------------------
 rural_2 <- rural %>%
   group_by(name_year) %>%
   distinct(hhid, .keep_all = TRUE) %>% 
@@ -125,7 +130,7 @@ ggVennDiagram(my_list, label_alpha = 0, set_color = c("blue","darkred","darkgree
   guides(fill = guide_legend(title = "Household Count")) +
   theme(legend.position = "bottom")
 
-# Venn Diagram 6 way ------------------------------------------------------------
+## Venn Diagram 6 way ------------------------------------------------------
 rural_2 <- rural %>%
   group_by(name_year) %>%
   distinct(hhid, .keep_all = TRUE) %>% 
@@ -174,25 +179,25 @@ rural %>%
   align_text_col(align = "center", header = TRUE)
 
 # Summarise the diarrhea by any diarrhea
-rural %>% 
+
+rural %>%  
   group_by(name_year, hhid) %>% 
-  mutate(first_animal_total = if_else(row_number()==1, animal_total, 0 )) %>%
+  mutate(first_animal_total_hhunder5 = if_else(hh_under5 == 1 & row_number() == 1, animal_total, 0)) %>%
   group_by(diarrhea_dichot) %>% 
   summarise(n = n(),
             n_under5 = sum(b8 <= 5, na.rm = TRUE),
-            animal_total = sum(first_animal_total),
-            avg_num_animal = round(mean(animal_total/n_under5, na.rm = TRUE), 2)) %>%
-  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
-                                  "1" = "Yes",
-                                  .missing = "Unknown")) %>% 
+            animal_total_under5 = sum(first_animal_total_hhunder5),
+            avg_num_animal = round(mean(animal_total_under5/n_under5, na.rm = TRUE), 2)) %>%
+  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No", "1" = "Yes")) %>% 
   arrange(desc(diarrhea_dichot)) %>% 
-  adorn_totals("row",,,,c(n, n_under5, animal_total)) %>% 
+  adorn_totals("row",,,,c(n, n_under5, animal_total_under5)) %>% 
   qflextable() %>% 
-  set_header_labels(diarrhea_dichot = "Any Diarrhea", n = "Number of People", n_under5 = "Number Under 5",
-                    animal_total = "Total # Animals", avg_num_animal = "Avg # Animals Per Child under 5")%>% 
+  set_header_labels(diarrhea_dichot = "Any Diarrhea", n = "Number of People", n_under5 = "Children Under 5",
+                    animal_total_under5 = "Total Number of Animals*", avg_num_animal = "Avg Number of Animals Per Child under 5")%>% 
   theme_zebra() %>% theme_box() %>% 
   align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
+  align_text_col(align = "center", header = TRUE) %>% 
+  add_footer_lines("*Among households that have a child under the age of 5")
 
 # Box plot for any animals
 ggplot(data = rural, mapping = aes(
@@ -213,17 +218,22 @@ ggplot(data = rural, mapping = aes(
 # Summarise the diarrhea by total animals
 
 rural %>% 
+  mutate(animal_total_cut = if_else(is.na(animal_total_cut), "Unknown Animal", as.character(animal_total_cut))) %>%
   group_by(animal_total_cut) %>% 
   summarise(n = n(),
             n_under5 = sum(b8 <= 5, na.rm = TRUE),
             avg_num_animal = round(mean(animal_total, na.rm = TRUE), 2),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
-            percent_diarrhea = round((num_diarrhea / n_under5), 4)*100) %>%
+            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100) %>%
+  mutate(animal_total_cut = recode_factor(animal_total_cut, "(0,3]" = "1-3", "(3,7]" = "4-7",
+                                          "(7,13]" = "8-13", "(13,25]" = "14-25",
+                                          "(25,Inf]" = "26-475", .default = "Unknown Animal")) %>%
+  arrange(animal_total_cut) %>% 
   adorn_totals("row",,,,c(n, n_under5, num_diarrhea)) %>% 
   qflextable() %>% 
-  set_header_labels(animal_total_cat = "# Animal Category", n = "Number of People", n_under5 = "Number Under 5",
-                    avg_num_animal = "Avg # Animals", num_diarrhea = "Under 5 w/ Dia",
-                    percent_diarrhea = "% Diarrhea")%>% 
+  set_header_labels(animal_total_cut = "Number of Animals in Household", n = "Number of People", n_under5 = "Children Under 5",
+                    avg_num_animal = "Avg Number of Animals", num_diarrhea = "Children Under 5 with Diarrhea",
+                    percent_diarrhea = "Diarrhea Prevalence")%>% 
   theme_zebra() %>% theme_box() %>% 
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
@@ -239,13 +249,12 @@ rural %>%
             percent_diarrhea = round((num_diarrhea / n_under5), 4)*100) %>%
   adorn_totals("row",,,,c(n, n_under5, num_diarrhea)) %>% 
   qflextable() %>% 
-  set_header_labels(animal_combo = "Animal Combos", n = "Number of People", n_under5 = "Number Under 5",
-                    avg_num_animal = "Avg # Animals", num_diarrhea = "Under 5 w/ Dia",
-                    percent_diarrhea = "% Diarrhea")%>% 
+  set_header_labels(animal_combo = "Number of Different Animals in Households", n = "Number of People", 
+                    n_under5 = "Children under 5", avg_num_animal = "Average Number of Animals", 
+                    num_diarrhea = "Children under 5 with Diarrhea", percent_diarrhea = "Diarrhea Prevalence")%>% 
   theme_zebra() %>% theme_box() %>% 
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
-
 
 
 # KGC ---------------------------------------------------------------
@@ -259,10 +268,11 @@ rural %>%
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4)*100) %>%
   adorn_totals("row",,,,c(n, n_under5, num_diarrhea)) %>% 
+  mutate(kgc_course = recode(kgc_course, .missing = "Unknown KGZ")) %>% 
   qflextable() %>% 
-  set_header_labels(kgc_course = "KGZ", n = "Number of People", n_under5 = "Number Under 5",
-                    avg_num_animal = "Avg # Animals", num_diarrhea = "Under 5 w/ Dia",
-                    percent_diarrhea = "% Diarrhea")%>% 
+  set_header_labels(kgc_course = "Köppen-Geiger Zone (KGZ)", n = "Number of People", n_under5 = "Children Under 5",
+                    avg_num_animal = "Average Number of Animals", num_diarrhea = "Children under 5 with Diarrhea",
+                    percent_diarrhea = "Diarrhea Prevalence")%>% 
   theme_zebra() %>% theme_box() %>% 
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
@@ -588,7 +598,34 @@ under5_animal <- under5_animal %>%
 logit_cattle <- glm(diarrhea_dichot ~ bull_cow_cattle_present, data = under5_animal, family = "binomial")
 exp(cbind(OR = coef(logit_cattle), confint(logit_cattle)))
 
-under5_animal %>%
+
+
+
+rural %>%  
+  group_by(name_year, hhid) %>% 
+  mutate(first_animal_total_hhunder5 = if_else(hh_under5 == 1 & row_number() == 1, animal_total, 0)) %>%
+  group_by(diarrhea_dichot) %>% 
+  summarise(n = n(),
+            n_under5 = sum(b8 <= 5, na.rm = TRUE),
+            animal_total_under5 = sum(first_animal_total_hhunder5),
+            avg_num_animal = round(mean(animal_total_under5/n_under5, na.rm = TRUE), 2)) %>%
+  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No", "1" = "Yes")) %>% 
+  arrange(desc(diarrhea_dichot)) %>% 
+  adorn_totals("row",,,,c(n, n_under5, animal_total_under5)) %>% 
+  qflextable() %>% 
+  set_header_labels(diarrhea_dichot = "Any Diarrhea", n = "Number of People", n_under5 = "Children Under 5",
+                    animal_total_under5 = "Total Number of Animals*", avg_num_animal = "Avg Number of Animals Per Child under 5")%>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE) %>% 
+  add_footer_lines("*Among households that have a child under the age of 5")
+
+
+
+
+
+
+rural %>%
   summarise(num_children = n(),
             num_cattle = sum(bull_cow_cattle_present),
             dia_yes = sum(diarrhea_cattle == 1, na.rm = TRUE),
@@ -734,7 +771,7 @@ weather_var <- c("e_totalminus7",    "e_totalminus14",    "e_totalminus30",    "
 
 
 # Correlation for rural data
-subset_rural <- rural_final %>% select(h11, all_of(weather_var))
+subset_rural <- rural %>% select(h11, all_of(weather_var))
 
 cor_rural_focus <- subset_rural %>% 
   correlate() %>% 
@@ -781,169 +818,114 @@ corrplot(cor_rural_weather, p.mat = testRes$p, method = "square", order = "alpha
          insig = "label_sig", pch.col = "grey1", tl.col = labelCol, tl.srt = 45)
 
 
-
-
-
-
-rural_final %>%
-  group_by(hv007) %>% 
-  summarise(num_children = n(),
-            exposed = sum(animal_cattle_present),
-            percent_exp = round((exposed/num_children)*100, digits = 1), 
-            dia_yes = sum(diarrhea_cattle == 1, na.rm = TRUE),
-            dia_no = sum(diarrhea_cattle == 0, na.rm = TRUE),
-            percent_dia = round((dia_yes/dia_no)*100, digits = 1)) %>% 
-  qflextable() %>% 
-  set_header_labels(hv007 = "Year",
-                    num_children = "Number of Children",
-                    exposed = "Number Exposed",
-                    percent_exp = "Exposed %",
-                    dia_yes = "Diarrhea",
-                    dia_no = "No Diarrhea",
-                    percent_dia = "Diarrhea %") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)%>%
-  colformat_num(j = "hv007", big.mark = "")
-
-
-rural_final %>%
-  group_by(hv007) %>% 
-  summarise(num_children = n(),
-            exposed = sum(animal_cow_present),
-            percent_exp = round((exposed/num_children)*100, digits = 1), 
-            dia_yes = sum(diarrhea_cow == 1, na.rm = TRUE),
-            dia_no = sum(diarrhea_cow == 0, na.rm = TRUE),
-            percent_dia = round((dia_yes/dia_no)*100, digits = 1)) %>% 
-  qflextable() %>% 
-  set_header_labels(hv007 = "Year",
-                    num_children = "Number of Children",
-                    exposed = "Number Exposed",
-                    percent_exp = "Exposed %",
-                    dia_yes = "Diarrhea",
-                    dia_no = "No Diarrhea",
-                    percent_dia = "Diarrhea %") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)%>%
-  colformat_num(j = "hv007", big.mark = "")
-
-rural_final %>%
-  group_by(hv007) %>% 
-  summarise(num_children = n(),
-            exposed = sum(animal_horse_present),
-            percent_exp = round((exposed/num_children)*100, digits = 1), 
-            dia_yes = sum(diarrhea_horse == 1, na.rm = TRUE),
-            dia_no = sum(diarrhea_horse == 0, na.rm = TRUE),
-            percent_dia = round((dia_yes/dia_no)*100, digits = 1)) %>% 
-  qflextable() %>% 
-  set_header_labels(hv007 = "Year",
-                    num_children = "Number of Children",
-                    exposed = "Number Exposed",
-                    percent_exp = "Exposed %",
-                    dia_yes = "Diarrhea",
-                    dia_no = "No Diarrhea",
-                    percent_dia = "Diarrhea %") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)%>%
-  colformat_num(j = "hv007", big.mark = "")
-
-rural_final %>%
-  group_by(hv007) %>% 
-  summarise(num_children = n(),
-            exposed = sum(animal_goat_present),
-            percent_exp = round((exposed/num_children)*100, digits = 1), 
-            dia_yes = sum(diarrhea_goat == 1, na.rm = TRUE),
-            dia_no = sum(diarrhea_goat == 0, na.rm = TRUE),
-            percent_dia = round((dia_yes/dia_no)*100, digits = 1)) %>% 
-  qflextable() %>% 
-  set_header_labels(hv007 = "Year",
-                    num_children = "Number of Children",
-                    exposed = "Number Exposed",
-                    percent_exp = "Exposed %",
-                    dia_yes = "Diarrhea",
-                    dia_no = "No Diarrhea",
-                    percent_dia = "Diarrhea %") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)%>%
-  colformat_num(j = "hv007", big.mark = "")
-
-rural_final %>%
-  group_by(hv007) %>% 
-  summarise(num_children = n(),
-            exposed = sum(animal_sheep_present),
-            percent_exp = round((exposed/num_children)*100, digits = 1), 
-            dia_yes = sum(diarrhea_sheep == 1, na.rm = TRUE),
-            dia_no = sum(diarrhea_sheep == 0, na.rm = TRUE),
-            percent_dia = round((dia_yes/dia_no)*100, digits = 1)) %>% 
-  qflextable() %>% 
-  set_header_labels(hv007 = "Year",
-                    num_children = "Number of Children",
-                    exposed = "Number Exposed",
-                    percent_exp = "Exposed %",
-                    dia_yes = "Diarrhea",
-                    dia_no = "No Diarrhea",
-                    percent_dia = "Diarrhea %") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)%>%
-  colformat_num(j = "hv007", big.mark = "")
-
-rural_final %>%
-  group_by(hv007) %>% 
-  summarise(num_children = n(),
-            exposed = sum(animal_chicken_present),
-            percent_exp = round((exposed/num_children)*100, digits = 1), 
-            dia_yes = sum(diarrhea_chicken == 1, na.rm = TRUE),
-            dia_no = sum(diarrhea_chicken == 0, na.rm = TRUE),
-            percent_dia = round((dia_yes/dia_no)*100, digits = 1)) %>% 
-  qflextable() %>% 
-  set_header_labels(hv007 = "Year",
-                    num_children = "Number of Children",
-                    exposed = "Number Exposed",
-                    percent_exp = "Exposed %",
-                    dia_yes = "Diarrhea",
-                    dia_no = "No Diarrhea",
-                    percent_dia = "Diarrhea %") %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)%>%
-  colformat_num(j = "hv007", big.mark = "")
-
-
-
-# Models ------------------------------------------------------------------
+# Unadjusted Models ------------------------------------------------------------------
 
 model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + tp_totalminus7 + kgc_course + epe_7_95 +
                      (1|name_year/hv001), data = under5_animal, family = binomial)
 
-
-model_chicken%>% tbl_regression(exponentiate = TRUE) %>% bold_labels()
+table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry"),exponentiate = TRUE) %>% bold_labels()
 
 model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present +
                          (1|name_year/hv001), data = under5_animal, family = binomial)
 
-model_bull%>% tbl_regression(exponentiate = TRUE) %>% bold_labels()
+table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle"),exponentiate = TRUE) %>% bold_labels()
 
 model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present +
                          (1|name_year/hv001), data = under5_animal, family = binomial)
 
-model_goat%>% tbl_regression(exponentiate = TRUE) %>% bold_labels()
+table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep"),exponentiate = TRUE) %>% bold_labels()
 
 model_horse <- glmer(diarrhea_dichot ~ horse_donkey_camel_present +
                          (1|name_year/hv001), data = under5_animal, family = binomial)
 
-model_horse%>% tbl_regression(exponentiate = TRUE) %>% bold_labels()
+table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_camel_present ~ "Horse/Donkey/Camel"),exponentiate = TRUE) %>% bold_labels()
 
 model_pig <- glmer(diarrhea_dichot ~ pig_present +
                          (1|name_year/hv001), data = under5_animal, family = binomial)
 
-model_pig%>% tbl_regression(exponentiate = TRUE) %>% bold_labels()
+table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig"),exponentiate = TRUE) %>% bold_labels()
 
 model_other <- glmer(diarrhea_dichot ~ other_present +
                          (1|name_year/hv001), data = under5_animal, family = binomial)
 
-model_other%>% tbl_regression(exponentiate = TRUE) %>% bold_labels()
+table_other <- model_other %>% tbl_regression(label = list(other_present ~ "Other Animal"),exponentiate = TRUE) %>% bold_labels()
 
+combined_models <- tbl_stack(tbls = list(table_chicken, table_bull, table_goat, table_horse, table_pig, table_other), group_header = "Test")
+
+combined_models <- combined_models %>%
+  modify_header(label = "**Animal Type**")
+
+combined_models
+
+
+# Adjusted Models ---------------------------------------------------------
+
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + epe_30_95 +
+                         (1|name_year/hv001), data = under5_animal, family = binomial)
+
+table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry", kgc_course ~ "Koppen-Geiger Zone",
+                                                               epe_30_95 ~ "EPE, 30 Days"),exponentiate = TRUE) %>% bold_labels()
+
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + epe_30_95 +
+                      (1|name_year/hv001), data = under5_animal, family = binomial)
+
+table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle", kgc_course ~ "Koppen-Geiger Zone",
+                                                         epe_30_95 ~ "EPE, 30 Days"),exponentiate = TRUE) %>% bold_labels()
+
+
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + kgc_course + epe_30_95 +
+                      (1|name_year/hv001), data = under5_animal, family = binomial)
+
+table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep", kgc_course ~ "Koppen-Geiger Zone",
+                                                         epe_30_95 ~ "EPE, 30 Days"),exponentiate = TRUE) %>% bold_labels()
+
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_camel_present + kgc_course + epe_30_95 +
+                       (1|name_year/hv001), data = under5_animal, family = binomial)
+
+table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_camel_present ~ "Horse/Donkey/Camel", kgc_course ~ "Koppen-Geiger Zone",
+                                                           epe_30_95 ~ "EPE, 30 Days"),exponentiate = TRUE) %>% bold_labels()
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + epe_30_95 +
+                     (1|name_year/hv001), data = under5_animal, family = binomial)
+
+table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig", kgc_course ~ "Koppen-Geiger Zone",
+                                                       epe_30_95 ~ "EPE, 30 Days"),exponentiate = TRUE) %>% bold_labels()
+
+model_other <- glmer(diarrhea_dichot ~ other_present + kgc_course + epe_30_95 +
+                       (1|name_year/hv001), data = under5_animal, family = binomial)
+
+table_other <- model_other %>% tbl_regression(label = list(other_present ~ "Other Animal", kgc_course ~ "Koppen-Geiger Zone",
+                                                           epe_30_95 ~ "EPE, 30 Days"),exponentiate = TRUE) %>% bold_labels()
+
+
+
+combined_models <- tbl_merge(tbls = list(table_chicken, table_bull, table_goat, table_horse, table_pig, table_other),
+                             tab_spanner = c("**Chicken/Duck/Poultry**", "**Bull/Cow/Cattle**",
+                                             "**Goat/Sheep**", "**Horse/Donkey/Camel**",
+                                             "**Pig**", "**Other Animal**")) %>%
+  
+  # combined_models <- combined_models %>%
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("Chicken/Duck/Poultry", "Bull/Cow/Cattle",
+                                                "Goat/Sheep", "Horse/Donkey/Camel",
+                                                "Pig", "Other Animal", "Koppen-Geiger Zone", 
+                                                "EPE, 30 Days"))))
+
+
+combined_models <- combined_models %>% as_gt()
+
+
+combined_models <- combined_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+
+gtsave(combined_models, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/combined_model.html")
