@@ -303,3 +303,26 @@ urban %>% filter(hv007 %in% c(2015:2022)) %>%
   theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, face = "bold"))+
   ggtitle("Urban dataset and HV270a (Separate Wealth)")+
   theme(plot.title = element_text(hjust = 0.5))
+
+
+
+rural_final %>%
+  group_by(hv007) %>% 
+  summarise(num_children = n(),
+            exposed = sum(animal_cattle_present),
+            percent_exp = round((exposed/num_children)*100, digits = 1), 
+            dia_yes = sum(diarrhea_cattle == 1, na.rm = TRUE),
+            dia_no = sum(diarrhea_cattle == 0, na.rm = TRUE),
+            percent_dia = round((dia_yes/dia_no)*100, digits = 1)) %>% 
+  qflextable() %>% 
+  set_header_labels(hv007 = "Year",
+                    num_children = "Number of Children",
+                    exposed = "Number Exposed",
+                    percent_exp = "Exposed %",
+                    dia_yes = "Diarrhea",
+                    dia_no = "No Diarrhea",
+                    percent_dia = "Diarrhea %") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)%>%
+  colformat_num(j = "hv007", big.mark = "")
