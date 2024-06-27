@@ -35,6 +35,14 @@ data_aim2 <- data_aim2 %>% mutate(hv007 = case_when(
                              hv007 < 100  ~ hv007+1900,
                              TRUE ~ hv007))
 
+# Specify if Household has Child Under 5 ----------------------------------
+
+data_aim2 <- data_aim2 %>%
+  group_by(name_year, hhid) %>% 
+  mutate(hh_under5 = if_else(any(b8 <= 5), 1, 0)) %>%
+  mutate(hh_under5 = if_else(is.na(hh_under5), 0, hh_under5)) %>% 
+  ungroup()
+
 # Clean KGC ---------------------------------------------------------------
 
 # Categorize the Koppen-Geiger Climate Classification System into fine details
@@ -357,7 +365,15 @@ rural_hh <- rural %>%
             distinct(hhid, .keep_all = TRUE)
 
 saveRDS(rural_hh, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural_hh.rds")
-  
+
+# Under 5 with Animals ----------------------------------------------------
+under5_animal <- rural %>% filter(b8 <= 5) %>%                        # Only those under 5
+                           filter(hv246 == 1) %>%                     # Only those with Animals
+                           filter(b5 == 1) %>%                        # Only include those that are still alive
+                           filter(!between(LATNUM, -0.0001, 0.0001))  # Remove unrealistic GPS
+
+saveRDS(under5_animal, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_animal.rds")
+
 # Rural Under 5 Diarrhea with Animals -------------------------------------
 under5_dia <- rural %>% filter(b8 <= 5) %>%                        # Only those under 5
                         filter(diarrhea_dichot == 1) %>%           # Only those that have diarrhea
