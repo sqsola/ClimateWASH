@@ -4,13 +4,14 @@ location <- "HPC"
 
 # Load Packages
 library(plyr)
-library(tidyverse)
+library(data.table)
 library(lubridate)
 library(haven)
 library(magrittr)
 library(sf)
 library(ncdf4)
 library(shinythemes)
+library(tidyverse)
 
 if (location == "personal") {
 library(ethiopianDate)
@@ -23,18 +24,22 @@ library(ethiopianDate, lib.loc = "/home/ssola1/rlibs/R")
 library(lutz, lib.loc = "/home/ssola1/rlibs/R")
 library(kgc, lib.loc = "/home/ssola1/rlibs/R")
   }
-  
+
 # Specify the files to work on
-country <- "Ethiopia"
-name_year <- "ET_05"
+source("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/countries.R")
+# country <- "Ethiopia"
+# name_year <- "ET_05"
 
 # Start system time
 Start <- Sys.time()
 
+for (i in 1:nrow(countries)) {
+  country <- countries$country[i]
+  name_year <- countries$name_year[i]
+
 if (location == "personal") {
 # Set Working Directory (Personal)
-setwd(paste0("C:/Users/Steven Sola/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/",
-             country,"/",name_year))
+setwd(paste0("C:/Users/Steven Sola/OneDrive - Johns Hopkins/Dissertation/Dissertation/Data/Aim 1/",country,"/",name_year))
   }
 
 if (location == "HPC") { 
@@ -296,23 +301,29 @@ weather_survey_coords <- cbind(unique_obs, weather_survey)
 weather_survey_coords_cel <- weather_survey_coords %>% 
                                 mutate_at(vars(starts_with(c("skt","t2m","d2m"))),  ~.x - 273.15)
 
-# Assign Köppen-Geiger Zone
-weather_survey_coords_cel <- weather_survey_coords_cel %>% 
-                                  mutate(rndCoord.lon = RoundCoordinates(.$LONGNUM, res = "course", latlong = "lon"),
-                                  rndCoord.lat = RoundCoordinates(.$LATNUM, res = "course", latlong = "lat"))
+# Convert m to cm for surface runoff (sro) and total precipitation (tp)
+weather_survey_coords_cel_cm <- weather_survey_coords_cel %>% 
+                                 mutate_at(vars(starts_with(c("sro", "tp"))),  ~.x * 100)
 
-weather_final <- weather_survey_coords_cel %>% 
-                      mutate(kgc = LookupCZ(., res = "course", rc = FALSE))
+# Assign Köppen-Geiger Zone
+weather_survey_coords_cel_cm <- weather_survey_coords_cel_cm %>% 
+                                   mutate(rndCoord.lon = RoundCoordinates(.$LONGNUM, res = "fine", latlong = "lon"),
+                                          rndCoord.lat = RoundCoordinates(.$LATNUM, res = "fine", latlong = "lat"))
+
+weather_final <- weather_survey_coords_cel_cm %>% 
+                      mutate(kgc = LookupCZ(., res = "fine", rc = FALSE))
 
 # Save the outputs
-write.csv(weather_final, paste0("~/data-mdavis65/steven_sola/2_Weather_Processed/CSV/", name_year,"_weatherfinal.csv"))
-write.csv(weather_final, paste0("~/scr4-mdavis65/ssola1/Weather_Processed/CSV/", name_year, "_weatherfinal.csv"))
+fwrite(weather_final, paste0("~/data-mdavis65/steven_sola/2_Weather_Processed/CSV/", name_year,"_weatherfinal_cm.csv"))
+fwrite(weather_final, paste0("~/scr4-mdavis65/ssola1/Weather_Processed/CSV/", name_year, "_weatherfinal_cm.csv"))
 
-save(weather_final, file= paste0("~/data-mdavis65/steven_sola/2_Weather_Processed/Rdata/", name_year, "_weatherfinal"))
-save(weather_final, file= paste0("~/scr4-mdavis65/ssola1/Weather_Processed/Rdata/", name_year, "_weatherfinal"))
+saveRDS(weather_final, file = paste0("~/data-mdavis65/steven_sola/2_Weather_Processed/Rdata/", name_year, "_weatherfinal_cm.rds"))
+saveRDS(weather_final, file = paste0("~/scr4-mdavis65/ssola1/Weather_Processed/Rdata/", name_year, "_weatherfinal_cm.rds"))
 
 # Finish message
 print(paste0(name_year, " has finished processing"))
 
 # Cumulative time for processing files
 round(as.difftime(Sys.time()-Start, format = "%T"), digits = 2)
+
+}
