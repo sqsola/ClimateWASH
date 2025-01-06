@@ -326,3 +326,201 @@ rural_final %>%
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)%>%
   colformat_num(j = "hv007", big.mark = "")
+
+
+
+
+
+
+under5_animal <- under5_animal %>%
+  mutate(diarrhea_cattle = case_when(bull_cow_cattle_present == 0 ~ NA_integer_,
+                                     bull_cow_cattle_present == 1 & diarrhea_dichot == 1 ~ 1, 
+                                     TRUE ~ 0)) %>% 
+  mutate(diarrhea_chicken = case_when(chicken_poultry_duck_present == 0 ~ NA_integer_,
+                                      chicken_poultry_duck_present == 1 & diarrhea_dichot == 1 ~ 1, 
+                                      TRUE ~ 0)) %>% 
+  mutate(diarrhea_goat = case_when(goat_sheep_present == 0 ~ NA_integer_,
+                                   goat_sheep_present == 1 & diarrhea_dichot == 1 ~ 1, 
+                                   TRUE ~ 0)) %>% 
+  mutate(diarrhea_horse = case_when(horse_donkey_camel_present == 0 ~ NA_integer_,
+                                    horse_donkey_camel_present == 1 & diarrhea_dichot == 1 ~ 1, 
+                                    TRUE ~ 0)) %>% 
+  mutate(diarrhea_pig = case_when(pig_present == 0 ~ NA_integer_,
+                                  pig_present == 1 & diarrhea_dichot == 1 ~ 1, 
+                                  TRUE ~ 0)) %>% 
+  mutate(diarrhea_other = case_when(other_present == 0 ~ NA_integer_,
+                                    other_present == 1 & diarrhea_dichot == 1 ~ 1, 
+                                    TRUE ~ 0))
+
+
+
+logit_cattle <- glm(diarrhea_dichot ~ bull_cow_cattle_present, data = under5_animal, family = "binomial")
+exp(cbind(OR = coef(logit_cattle), confint(logit_cattle)))
+
+
+
+rural %>%
+  summarise(num_children = n(),
+            num_cattle = sum(bull_cow_cattle_present),
+            dia_yes = sum(diarrhea_cattle == 1, na.rm = TRUE),
+            dia_no = sum(diarrhea_cattle == 0, na.rm = TRUE),
+            percent_dia = round((dia_yes/dia_no)*100, digits = 1),
+            or = paste0("0.92 (0.91, 0.94)"))%>% 
+  qflextable() %>% 
+  set_header_labels(num_children = "Number of Children",
+                    num_cattle = "Exposed to Cattle",
+                    dia_yes = "Diarrhea",
+                    dia_no = "No Diarrhea",
+                    percent_dia = "% Diarrhea",
+                    or = "OR (95% CI)") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+logit_cow <- glm(diarrhea_dichot ~ animal_cow_present, data = rural_final, family = "binomial")
+exp(cbind(OR = coef(logit_cow), confint(logit_cow)))
+
+rural_final %>%
+  summarise(num_children = n(),
+            num_cattle = sum(animal_cow_present),
+            dia_yes = sum(diarrhea_cow == 1, na.rm = TRUE),
+            dia_no = sum(diarrhea_cow == 0, na.rm = TRUE),
+            percent_dia = round((dia_yes/dia_no)*100, digits = 1),
+            or = paste0("0.93 (0.91, 0.95)"))%>% 
+  qflextable() %>% 
+  set_header_labels(num_children = "Number of Children",
+                    num_cattle = "Exposed to Cows",
+                    dia_yes = "Diarrhea",
+                    dia_no = "No Diarrhea",
+                    percent_dia = "% Diarrhea",
+                    or = "OR (95% CI)") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+logit_horse <- glm(diarrhea_dichot ~ animal_horse_present, data = rural_final, family = "binomial")
+exp(cbind(OR = coef(logit_horse), confint(logit_horse)))
+
+rural_final %>%
+  summarise(num_children = n(),
+            num_cattle = sum(animal_horse_present),
+            dia_yes = sum(diarrhea_horse == 1, na.rm = TRUE),
+            dia_no = sum(diarrhea_horse == 0, na.rm = TRUE),
+            percent_dia = round((dia_yes/dia_no)*100, digits = 1),
+            or = paste0("0.97 (0.95, 0.99)"))%>% 
+  qflextable() %>% 
+  set_header_labels(num_children = "Number of Children",
+                    num_cattle = "Exposed to Horse",
+                    dia_yes = "Diarrhea",
+                    dia_no = "No Diarrhea",
+                    percent_dia = "% Diarrhea",
+                    or = "OR (95% CI)") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+logit_goat <- glm(diarrhea_dichot ~ animal_goat_present, data = rural_final, family = "binomial")
+exp(cbind(OR = coef(logit_goat), confint(logit_goat)))
+
+rural_final %>%
+  summarise(num_children = n(),
+            num_cattle = sum(animal_goat_present),
+            dia_yes = sum(diarrhea_goat == 1, na.rm = TRUE),
+            dia_no = sum(diarrhea_goat == 0, na.rm = TRUE),
+            percent_dia = round((dia_yes/dia_no)*100, digits = 1),
+            or = paste0("1.02 (1.00, 1.04)"))%>% 
+  qflextable() %>% 
+  set_header_labels(num_children = "Number of Children",
+                    num_cattle = "Exposed to Goat",
+                    dia_yes = "Diarrhea",
+                    dia_no = "No Diarrhea",
+                    percent_dia = "% Diarrhea",
+                    or = "OR (95% CI)") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+logit_sheep <- glm(diarrhea_dichot ~ animal_sheep_present, data = rural_final, family = "binomial")
+exp(cbind(OR = coef(logit_sheep), confint(logit_sheep)))
+
+rural_final %>%
+  summarise(num_children = n(),
+            num_cattle = sum(animal_sheep_present),
+            dia_yes = sum(diarrhea_sheep == 1, na.rm = TRUE),
+            dia_no = sum(diarrhea_sheep == 0, na.rm = TRUE),
+            percent_dia = round((dia_yes/dia_no)*100, digits = 1),
+            or = paste0("0.96 (0.94, 0.98)"))%>% 
+  qflextable() %>% 
+  set_header_labels(num_children = "Number of Children",
+                    num_cattle = "Exposed to Sheep",
+                    dia_yes = "Diarrhea",
+                    dia_no = "No Diarrhea",
+                    percent_dia = "% Diarrhea",
+                    or = "OR (95% CI)") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+logit_chicken <- glm(diarrhea_dichot ~ animal_chicken_present, data = rural_final, family = "binomial")
+exp(cbind(OR = coef(logit_chicken), confint(logit_chicken)))
+
+rural_final %>%
+  summarise(num_children = n(),
+            num_cattle = sum(animal_chicken_present),
+            dia_yes = sum(diarrhea_chicken == 1, na.rm = TRUE),
+            dia_no = sum(diarrhea_chicken == 0, na.rm = TRUE),
+            percent_dia = round((dia_yes/dia_no)*100, digits = 1),
+            or = paste0("0.95 (0.93, 0.97)"))%>% 
+  qflextable() %>% 
+  set_header_labels(num_children = "Number of Children",
+                    num_cattle = "Exposed to Chicken",
+                    dia_yes = "Diarrhea",
+                    dia_no = "No Diarrhea",
+                    percent_dia = "% Diarrhea",
+                    or = "OR (95% CI)") %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+
+
+
+tbl_stack_ex1 <- tbl_stack(list(cattle, cow, horse, goat, sheep, chicken))
+
+
+
+
+
+
+
+# EPE_7
+under5_animal %>% 
+  group_by(chicken_poultry_duck_present, diarrhea_dichot) %>% 
+  summarise(n = n(),
+            epe_7_95_0 = sum(epe_7_95 == 0, na.rm = TRUE),
+            percent_0 = round((epe_7_95_0/n)*100, digits = 2),
+            epe_7_95_1 = sum(epe_7_95 == 1, na.rm = TRUE),
+            percent_1 = round((epe_7_95_1/n)*100, digits = 2),
+            epe_7_95_2 = sum(epe_7_95 == 2, na.rm = TRUE),
+            percent_2 = round((epe_7_95_2/n)*100, digits = 2),
+            epe_7_95_3 = sum(epe_7_95 == 3, na.rm = TRUE),
+            percent_3 = round((epe_7_95_3/n)*100, digits = 2)) %>%
+  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
+                                  "1" = "Yes",
+                                  .missing = "Unknown"),
+         chicken_poultry_duck_present = recode(chicken_poultry_duck_present,
+                                               "0" = "No",
+                                               "1" = "Yes")) %>% 
+  arrange(desc(diarrhea_dichot)) %>% 
+  adorn_totals("row",,,,c(n, epe_7_95_0, epe_7_95_1, epe_7_95_2, epe_7_95_3)) %>% 
+  qflextable() %>% 
+  set_header_labels(chicken_poultry_duck_present = "Chicken/Duck/Poultry?",
+                    n = "Number Under 5",  diarrhea_dichot = "Diarrhea?",
+                    epe_7_95_0 = "0 EPEs", percent_0 = "%",
+                    percent_1 = "%", percent_2 = "%",
+                    percent_3 = "%",
+                    epe_7_95_1 = "1 EPEs",epe_7_95_2 = "2 EPEs",epe_7_95_3 = "3 EPEs")%>% 
+  add_header_lines(values = c("Total Precipitation, Past 7 Days")) %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
