@@ -226,7 +226,7 @@ tabyl(data_aim1$hv236_person)
 
 data_aim1 <- data_aim1 %>% mutate(hv236_person_recode = case_when(
                            hv236_person %in% c("Other", "other", "Don't know",
-                                               "Door to door water seller", "Water vendor") ~ NA_character_,
+                                               "Door to door water seller", "Water vendor") ~ "Other/Don't Know",
                            hv236_person %in% c("All members", "Any household member") ~ "Any member",
                            hv236_person %in% c("Male age 15-17 years old", "Female age 15-17 years old", 
                                                "Female and male children equally", "Female and male child under 15 years old") ~ "Female and male children",
@@ -240,33 +240,39 @@ data_aim1 <- data_aim1 %>% mutate(hv204 = case_when(
 
 # Clean Koppen-Geiger -----------------------------------------------------
 
+# Open the fine resolution KGZ file
+kgz_fine <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/kgc_small.rds") %>% select(LATNUM, LONGNUM, ClimateZ)
+
+data_aim1 <- left_join(data_aim1, kgz_fine, by = c("LATNUM", "LONGNUM"))
+
 # Categorize the Koppen-Geiger Climate Classification System into fine details
 data_aim1 <- data_aim1 %>% mutate(kgc_fine = case_when(
-                                  kgc == "Af"  ~ "Tropical Rainforest",
-                                  kgc == "Am"  ~ "Tropical Monsoon",
-                                  kgc == "As"  ~ "Tropical Savanna, Dry Summer",
-                                  kgc == "Aw"  ~ "Tropical Savanna Dry Winter",
-                                  kgc == "BSh" ~ "Dry Semi-Arid Hot",
-                                  kgc == "BSk" ~ "Dry Semi-Arid Cold",
-                                  kgc == "BWh" ~ "Dry Arid Hot",
-                                  kgc == "BWk" ~ "Dry Arid Desert Cold",
-                                  kgc == "Cfa" ~ "Temperate No Dry Season Hot Summer",
-                                  kgc == "Cfb" ~ "Temperate No Dry Season Warm Summer",
-                                  kgc == "Csa" ~ "Temperate Dry Summer Hot Summer",
-                                  kgc == "Csb" ~ "Temperate Dry Summer Warm Summer",
-                                  kgc == "Cwa" ~ "Temperate Dry Winter Hot Summer",
-                                  kgc == "Cwb" ~ "Temperate Dry Winter Warm Summer",
-                                  kgc == "Climate Zone info missing" ~ NA_character_,
-                                  TRUE ~ NA_character_))
+                                    ClimateZ == "Af"  ~ "Tropical Rainforest",
+                                    ClimateZ == "Am"  ~ "Tropical Monsoon",
+                                    ClimateZ == "As"  ~ "Tropical Savanna, Dry Summer",
+                                    ClimateZ == "Aw"  ~ "Tropical Savanna Dry Winter",
+                                    ClimateZ == "BSh" ~ "Dry Semi-Arid Hot",
+                                    ClimateZ == "BSk" ~ "Dry Semi-Arid Cold",
+                                    ClimateZ == "BWh" ~ "Dry Arid Hot",
+                                    ClimateZ == "BWk" ~ "Dry Arid Desert Cold",
+                                    ClimateZ == "Cfa" ~ "Temperate No Dry Season Hot Summer",
+                                    ClimateZ == "Cfb" ~ "Temperate No Dry Season Warm Summer",
+                                    ClimateZ == "Csa" ~ "Temperate Dry Summer Hot Summer",
+                                    ClimateZ == "Csb" ~ "Temperate Dry Summer Warm Summer",
+                                    ClimateZ == "Cwa" ~ "Temperate Dry Winter Hot Summer",
+                                    ClimateZ == "Cwb" ~ "Temperate Dry Winter Warm Summer",
+                                    ClimateZ == "Cwc" ~ "Temperate Dry Winter Cold Summer",
+                                    ClimateZ == "ET" ~ "Polar Tundra",
+                                    ClimateZ == "Ocean" ~ NA_character_,
+                                    TRUE ~ NA_character_))
 
 # Categorize the Koppen-Geiger Climate Classification System into course details
 data_aim1 <- data_aim1 %>% mutate(kgc_course = case_when(
-                                  kgc %in% c("Af", "Am", "As", "Aw") ~ "Tropical",
-                                  kgc %in% c("BSh", "BSk", "BWh", "BWk") ~ "Dry",
-                                  kgc %in% c("Cfa", "Cfb", "Csa", "Cwa", "Cwb") ~ "Temperate",
-                                  kgc == "Climate Zone info missing" ~ NA_character_,
-                                  TRUE ~ NA_character_))
-
+                                    ClimateZ %in% c("Af", "Am", "As", "Aw") ~ "Tropical",
+                                    ClimateZ %in% c("BSh", "BSk", "BWh", "BWk") ~ "Dry",
+                                    ClimateZ %in% c("Cfa", "Cfb", "Csa", "Csb", "Cwa", "Cwb", "Cwc") ~ "Temperate",
+                                    ClimateZ %in% c("ET", "Ocean") ~ "Other",
+                                    TRUE ~ NA_character_))
 
 # Coalesce the wlthind5 and hv270 variables -------------------------------
 
@@ -285,15 +291,19 @@ data_aim1 <- data_aim1 %>%
                             .ptype = factor(levels = c("Poorest", "Poor", 
                                                        "Middle", "Rich", "Richest"))))
 
+# Convert m to cm ---------------------------------------------------------
+data_aim1 <- data_aim1 %>% 
+  mutate(across(starts_with(c("sro", "tp")), ~ .x * 100, .names = "{.col}_cm"))
+
 # Output the datasets -----------------------------------------------------
 
 # Save the full dataset
-saveRDS(data_aim1, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.Rdata")
+saveRDS(data_aim1, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/data_aim1.rds")
 
 # Save the rural dataset
 rural <- data_aim1 %>% filter(URBAN_RURA == "R")
-saveRDS(rural, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/rural.Rdata")
+saveRDS(rural, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/rural.rds")
 
 # Save the urban dataset
 urban <- data_aim1 %>% filter(URBAN_RURA == "U")
-saveRDS(urban, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/urban.Rdata")
+saveRDS(urban, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/urban.rds")
