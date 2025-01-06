@@ -12,15 +12,15 @@ This work is licensed under <a href="http://creativecommons.org/licenses/by-nc-s
 
 #### DHS (Demographic and Health Surveys)
 
-As of 2023, the DHS have collected data from 400 surveys in over 90 countries. These surveys are used to monitor population, health, and nutrition programs. These surveys are implemented in coordination with USAID and their host country partners. These datasets are free to use for researchers who have a specific and defined research question. I would encourage prospective users to follow the instructions at [this link](https://dhsprogram.com/data/Using-Datasets-for-Analysis.cfm) for more information.
+As of 2025, the DHS have collected data from 400 surveys in over 90 countries. These surveys are used to monitor population, health, and nutrition programs. These surveys are implemented in coordination with USAID, ICF, and their host country partners. These datasets are free to use for researchers who have a specific and defined research question. I would encourage prospective users to follow the instructions at [this link](https://dhsprogram.com/data/Using-Datasets-for-Analysis.cfm) for more information.
 
 #### ERA-5 Land (Copernicus Climate Change Service)
 
-ERA-5 Land is a reanalysis dataset from the Copernicus Climate Change Service, which is implemented by the European Centre for Medium-Range Weather Forecasts. These data are at a spatial resolution of 0.1° x 0.1° (approximately 9km x 9km), and range from 1950 until 5 days prior to the present date. The files are available in either NetCDF v.4 or GRIB2 file formats. This project uses the NetCDF file format.
+ERA-5 Land is a reanalysis dataset from the Copernicus Climate Change Service, which is implemented by the European Centre for Medium-Range Weather Forecasts (ECMWFR). These data are at a spatial resolution of 0.1° x 0.1° (approximately 9km x 9km), and range from 1950 until 5 days prior to the present date. The files are available in either NetCDF v.4 or GRIB2 file formats. This project uses the NetCDF file format.
 
 #### A Note on Data Structure
 
-DHS Surveys come in "Recode" files, which are used to standardize questions throughout different countries and phases. If you are interested in using DHS data, I highly encourage you to read [this page](https://dhsprogram.com/data/Dataset-Types.cfm) about their data structure.
+DHS come in "Recode" files, which are used to standardize questions throughout different countries and phases. If you are interested in using DHS data, I highly encourage you to read [this page](https://dhsprogram.com/data/Dataset-Types.cfm) about their data structure.
 
 After I downloaded the data, I renamed each folder so it was more intelligible. I used the country codes already in use by DHS. Additionally, I renamed the dataset names to the following:
 
@@ -33,13 +33,13 @@ After I downloaded the data, I renamed each folder so it was more intelligible. 
 | HW           | heightweight |
 | WI           | wealth       |
 
-As a result, to get to the survey, you would have to travel: Senegal --\> SN_9293 --\> SN_9293_hh --\> SNHR21FL.DTA
+As a result, to get to the survey, you would have to navigate through the following file path: Senegal --\> SN_9293 --\> SN_9293_hh --\> SNHR21FL.DTA
 
 ## Files
 
-### **Main Folder**
+### **Home Folder**
 
-#### ERA5Land.R
+#### ERA5Land_Download.R
 
 The ERA5Land.R file uses the `ecmwfr` package to download weather data to the local machine. This code starts by loading the files that have already been downloaded and "cleaning" the file names so that only the dates remain from the file names.
 
@@ -49,7 +49,7 @@ The already-downloaded files are compared to this artificial dataset to see whic
 
 #### Weather_Extraction.R
 
-This script is designed to load in the survey data and extract the weather data for each cluster on their specific day. The weather data is taken from the ERA5-Land database, implemented by the European Centre for Medium-Range Weather Forecasts (ECMWF). More information about the weather variables used in this project can be found below, and at [this website](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-land?tab=overview). This script also assigns the Köppen-Geiger climate classification for each cluster.
+This script is designed to load in the survey data and extract the weather data for each cluster on their specific day. The weather data is taken from the ERA5-Land database, implemented by the European Centre for Medium-Range Weather Forecasts (ECMWF). More information about the weather variables used in this project can be found below, and at [this website](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-land?tab=overview).
 
 Accumulation Variables
 
@@ -70,17 +70,41 @@ Instantaneous Variables
 | Leaf Area Index - low vegetation (lai_lv)  | One-half of the total green leaf area per unit horizontal ground surface area for low vegetation type.                     |
 | Leaf Area Index - high vegetation (lai_hv) | One-half of the total green leaf area per unit horizontal ground surface area for high vegetation type.                    |
 
+Additionally, this script makes the following conversions:
+
+-   "skt", "t2m", and "d2m" variables from Kelvin to Celsius by subtracting 273.15 from each value.
+
+-   "sro" and "tp" from meters to centimeters by multiplying each value by 100.
+
+This script also assigns the Köppen-Geiger climate classification for each cluster at the "fine" resolution (nearest 100 decimal degree seconds) using the [kgc](https://cran.r-project.org/web/packages/kgc/kgc.pdf) package.
+
 #### FileExtension_Cleaning.R
 
-This script is a basic one which ensures all the .DTA file extensions (STATA) are all uppercase. There are some countries in which the file extension is .dta, and the code will not run in these instances, however rare they are.
+This script is a basic one which ensures all the .DTA file extensions (from the STATA programming language) are all uppercase. There are some countries in which the file extension is .dta, and the code will not run in these instances, however rare they are.
 
 #### CodeGraveyard.R
 
 Bits of code that I don't need anymore, but can't seem to get rid of in case I need to use them later.
 
+## Study Aims
+
 ### **Aim 1**
 
-Aim 1 is focused on water collection labor and its associations with climate variables.
+Title: The Influence of Precipitation, Runoff, and Temperature on Water Collection Labor in sub-Saharan Africa, 1990-2022.
+
+### **Aim 2**
+
+Title: Association of Animal Ownership with under-5 Diarrhea Prevalence in sub-Saharan Africa
+
+### **Aim 3**
+
+Title: Association of Animal Ownership and Extreme Precipitation Events with under-5 Diarrhea Prevalence in sub-Saharan Africa
+
+### **Aim 4**
+
+Title: TBD
+
+## Study Aims
 
 #### Combine_Households.R
 
