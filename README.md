@@ -104,7 +104,9 @@ Title: Association of Animal Ownership and Extreme Precipitation Events with und
 
 Title: TBD
 
-## Study Aims
+## Files for Aims
+
+### **Aim 1**
 
 #### Combine_Households.R
 
@@ -118,9 +120,9 @@ Taking the output from the "Combine_Households.R" file and cleaning the dataset.
 
 This code does the exploratory data analysis (EDA) and further analysis for Aim 1.
 
-### **Aim 2**
+### **Aim 2 & 3**
 
-Aim 1 is focused on prevalence of diarrhea in children under the age of 5 in the household and its associations with animal ownership.
+Aims 2 & 3 are focused on prevalence of diarrhea in children under the age of 5 in the household and its associations with animal ownership.
 
 #### Aim2_Cleaning.R
 
