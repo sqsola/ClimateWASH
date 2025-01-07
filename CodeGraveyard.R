@@ -524,3 +524,242 @@ under5_animal %>%
   theme_zebra() %>% theme_box() %>% 
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
+
+
+
+
+# Vaccinations ------------------------------------------------------------
+
+# Rotavirus
+under5_animal %>% 
+  group_by(diarrhea_dichot) %>% 
+  summarise(n = n(),
+            zero = sum(h57 == 0, na.rm = TRUE),
+            percent_0 = round((zero/n)*100, digits = 2),
+            one = sum(h57 == 1, na.rm = TRUE),
+            percent_1 = round((one/n)*100, digits = 2),
+            two = sum(h57 == 2, na.rm = TRUE),
+            percent_2 = round((two/n)*100, digits = 2),
+            three = sum(h57 == 3, na.rm = TRUE),
+            percent_3 = round((three/n)*100, digits = 2),
+            eight = sum(h57 == 8, na.rm = TRUE),
+            percent_8 = round((eight/n)*100, digits = 2)) %>%
+  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
+                                  "1" = "Yes",
+                                  .missing = "Unknown")) %>% 
+  arrange(desc(diarrhea_dichot)) %>% 
+  adorn_totals("row",,,,c(n, zero, one, two, three, eight)) %>% 
+  qflextable() %>% 
+  set_header_labels(n = "Number Under 5",  diarrhea_dichot = "Diarrhea?",
+                    zero = "None", percent_0 = "%",
+                    one = "Vax Date", percent_1 = "%",
+                    two = "Mom Report", percent_2 = "%",
+                    three = "Vax Card", percent_3 = "%",
+                    eight = "Don't Know", percent_8 = "%")%>% 
+  add_header_lines(values = c("Rotavirus Vaccination")) %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+under5_animal %>% 
+  group_by(diarrhea_dichot) %>% 
+  summarise(n = n(),
+            zero = sum(h61 == 0, na.rm = TRUE),
+            percent_0 = round((zero/n)*100, digits = 2),
+            one = sum(h61 == 1, na.rm = TRUE),
+            percent_1 = round((one/n)*100, digits = 2),
+            two = sum(h61 == 2, na.rm = TRUE),
+            percent_2 = round((two/n)*100, digits = 2),
+            three = sum(h61 == 3, na.rm = TRUE),
+            percent_3 = round((three/n)*100, digits = 2),
+            eight = sum(h61 == 8, na.rm = TRUE),
+            percent_8 = round((eight/n)*100, digits = 2)) %>%
+  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
+                                  "1" = "Yes",
+                                  .missing = "Unknown")) %>% 
+  arrange(desc(diarrhea_dichot)) %>% 
+  adorn_totals("row",,,,c(n, zero, one, two, three, eight)) %>% 
+  qflextable() %>% 
+  set_header_labels(n = "Number Under 5",  diarrhea_dichot = "Diarrhea?",
+                    zero = "None", percent_0 = "%",
+                    one = "Vax Date", percent_1 = "%",
+                    two = "Mom Report", percent_2 = "%",
+                    three = "Vax Card", percent_3 = "%",
+                    eight = "Don't Know", percent_8 = "%")%>% 
+  add_header_lines(values = c("Hep B Vaccination")) %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+
+under5_animal %>% 
+  group_by(diarrhea_dichot) %>% 
+  summarise(n = n(),
+            zero = sum(h51 == 0, na.rm = TRUE),
+            percent_0 = round((zero/n)*100, digits = 2),
+            one = sum(h51 == 1, na.rm = TRUE),
+            percent_1 = round((one/n)*100, digits = 2),
+            two = sum(h51 == 2, na.rm = TRUE),
+            percent_2 = round((two/n)*100, digits = 2),
+            three = sum(h51 == 3, na.rm = TRUE),
+            percent_3 = round((three/n)*100, digits = 2),
+            eight = sum(h51 == 8, na.rm = TRUE),
+            percent_8 = round((eight/n)*100, digits = 2)) %>%
+  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
+                                  "1" = "Yes",
+                                  .missing = "Unknown")) %>% 
+  arrange(desc(diarrhea_dichot)) %>% 
+  adorn_totals("row",,,,c(n, zero, one, two, three, eight)) %>% 
+  qflextable() %>% 
+  set_header_labels(n = "Number Under 5",  diarrhea_dichot = "Diarrhea?",
+                    zero = "None", percent_0 = "%",
+                    one = "Vax Date", percent_1 = "%",
+                    two = "Mom Report", percent_2 = "%",
+                    three = "Vax Card", percent_3 = "%",
+                    eight = "Don't Know", percent_8 = "%")%>% 
+  add_header_lines(values = c("DPT-HepB-Hib Pentavalent Vaccination")) %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+
+
+# Quartiles ---------------------------------------------------------------
+
+
+person_level_filter <- rural %>% select(hv246_chicken_poultry_duck_total_cat,
+                                        hv246_bull_cow_cattle_total_cat,
+                                        hv246_goat_sheep_total_cat,
+                                        hv246_horse_donkey_camel_total_cat, b8) %>% 
+  filter(b8 <= 4)
+
+# Calculate quantiles for hv246_chicken_poultry_duck_total_cat
+chicken_quantiles <- person_level_filter %>% 
+  filter(hv246_chicken_poultry_duck_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.25),
+    q50 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.5),
+    q75 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.75),
+    q90 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.90),
+    q95 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Chicken/Poultry/Duck")
+
+# Calculate quantiles for hv246_bull_cow_cattle_total_cat
+cattle_quantiles <- person_level_filter %>% 
+  filter(hv246_bull_cow_cattle_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.25),
+    q50 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.5),
+    q75 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.75),
+    q90 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.90),
+    q95 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Bull/Cow/Cattle")
+
+# Calculate quantiles for hv246_bull_cow_cattle_total_cat
+goat_sheep_quantiles <- person_level_filter %>% 
+  filter(hv246_goat_sheep_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_goat_sheep_total_cat, probs = 0.25),
+    q50 = quantile(hv246_goat_sheep_total_cat, probs = 0.5),
+    q75 = quantile(hv246_goat_sheep_total_cat, probs = 0.75),
+    q90 = quantile(hv246_goat_sheep_total_cat, probs = 0.90),
+    q95 = quantile(hv246_goat_sheep_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Goat/Sheep")
+
+
+# Calculate quantiles for hv246_bull_cow_cattle_total_cat
+horse_donkey_quantiles <- person_level_filter %>% 
+  filter(hv246_horse_donkey_camel_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.25),
+    q50 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.5),
+    q75 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.75),
+    q90 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.90),
+    q95 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Horse/Donkey/Camel")
+
+# Combine the tables
+bind_rows(chicken_quantiles, cattle_quantiles, goat_sheep_quantiles, horse_donkey_quantiles) %>% 
+  select(category, everything()) %>% 
+  qflextable() %>% 
+  set_header_labels(category = "Animal Category")%>% 
+  add_header_lines(values = c("Percentiles of Animal Ownership (Person Level)
+                              n = 904,958*")) %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE) %>% 
+  add_footer_lines("*Excludes people older than 5 and children that aren't exposed to each category")
+
+
+hh_level_filter <- rural_hh %>% ungroup() %>% select(hv246_chicken_poultry_duck_total_cat,
+                                                     hv246_bull_cow_cattle_total_cat,
+                                                     hv246_goat_sheep_total_cat,
+                                                     hv246_horse_donkey_camel_total_cat, hh_under5) %>% 
+  filter(hh_under5 == 1)
+
+
+# Calculate quantiles for hv246_chicken_poultry_duck_total_cat
+chicken_quantiles <- hh_level_filter %>% 
+  filter(hv246_chicken_poultry_duck_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.25),
+    q50 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.5),
+    q75 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.75),
+    q90 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.90),
+    q95 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Chicken/Poultry/Duck")
+
+# Calculate quantiles for hv246_bull_cow_cattle_total_cat
+cattle_quantiles <- hh_level_filter %>% 
+  filter(hv246_bull_cow_cattle_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.25),
+    q50 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.5),
+    q75 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.75),
+    q90 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.90),
+    q95 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Bull/Cow/Cattle")
+
+# Calculate quantiles for hv246_bull_cow_cattle_total_cat
+goat_sheep_quantiles <- hh_level_filter %>% 
+  filter(hv246_goat_sheep_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_goat_sheep_total_cat, probs = 0.25),
+    q50 = quantile(hv246_goat_sheep_total_cat, probs = 0.5),
+    q75 = quantile(hv246_goat_sheep_total_cat, probs = 0.75),
+    q90 = quantile(hv246_goat_sheep_total_cat, probs = 0.90),
+    q95 = quantile(hv246_goat_sheep_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Goat/Sheep")
+
+
+# Calculate quantiles for hv246_bull_cow_cattle_total_cat
+horse_donkey_quantiles <- hh_level_filter %>% 
+  filter(hv246_horse_donkey_camel_total_cat >= 1) %>% 
+  summarise(
+    q25 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.25),
+    q50 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.5),
+    q75 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.75),
+    q90 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.90),
+    q95 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.95)
+  ) %>%
+  mutate(category = "Horse/Donkey/Camel")
+
+# Combine the tables
+bind_rows(chicken_quantiles, cattle_quantiles, goat_sheep_quantiles, horse_donkey_quantiles) %>% 
+  select(category, everything()) %>% 
+  qflextable() %>% 
+  set_header_labels(category = "Animal Category")%>% 
+  add_header_lines(values = c("Percentiles of Animal Ownership (Household Level)
+                              n = 504,036*")) %>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE) %>% 
+  add_footer_lines("*Excludes households that don't have a child under 5 and each category excludes households that don't own an animal in the category")
+
