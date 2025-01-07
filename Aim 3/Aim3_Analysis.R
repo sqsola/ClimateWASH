@@ -29,12 +29,12 @@ if (location == "HPC") {
 }
 
 # Read in the rural datasets
-#data_aim2 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/data_aim2.rds")
-# rural         <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural.rds")
-descriptive   <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/descriptive.rds")
-rural_hh    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural_hh.rds")
-under5_animal <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_animal.rds")
-#under5_dia    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_dia.rds")
+#data_aim2 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/data_aim2.rds")
+# rural         <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/rural.rds")
+descriptive   <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/descriptive.rds")
+rural_hh    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/rural_hh.rds")
+under5_animal <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/under5_animal.rds")
+#under5_dia    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/under5_dia.rds")
 
 # Mapping ------------------------------------------------------
 
@@ -126,7 +126,7 @@ descriptive %>%
   align_text_col(align = "center", header = TRUE)
 
 
-# Animals by household ----------------------------------------------------
+# Animals by Household ----------------------------------------------------
 
 # Number of animals by household, disaggregated categories
   rural_hh %>%
@@ -364,42 +364,6 @@ rural_hh %>% filter(!animal_singleonly %in% c("none", "other")) %>%
              bg(i = ~ other_present == "Yes", j = ~ other_present, bg = "#8ef5ad") %>% 
              bg(i = ~ other_present == "No", j = ~ other_present, bg = "#f58e8e")
 
-
-## Animal by Region --------------------------------------------------------
-
-
-region_table <- descriptive %>%
-  group_by(region) %>%
-  summarise(
-    n = n(),
-    n_chicken = sum(hv246_chicken_poultry_duck_total_cat >= 1, na.rm = TRUE),
-    n_goat = sum(hv246_goat_sheep_total_cat >= 1, na.rm = T),
-    n_bull = sum(hv246_bull_cow_cattle_total_cat >= 1, na.rm = T),
-    n_horse = sum(hv246_horse_donkey_total_cat >= 1, na.rm = T),
-    n_pig = sum(hv246_pig_total_cat >= 1, na.rm = T)) %>%
-  mutate(chicken_info = paste0(comma(n_chicken), " (", percent((n_chicken / n), accuracy = 0.1), ")"),
-         goat_info = paste0(comma(n_goat), " (", percent((n_goat / n), accuracy = 0.1), ")"),
-         bull_info = paste0(comma(n_bull), " (", percent((n_bull / n), accuracy = 0.1), ")"),
-         horse_info = paste0(comma(n_horse), " (", percent((n_horse / n), accuracy = 0.1), ")"),
-         pig_info = paste0(comma(n_pig), " (", percent((n_pig / n), accuracy = 0.1), ")")) %>%
-  bind_rows(summarise(., region = "Total", n = sum(n),
-                      chicken_info = paste0(comma(sum(n_chicken)), " (", percent(sum(n_chicken) / sum(n)), ")"),
-                      goat_info = paste0(comma(sum(n_goat)), " (", percent(sum(n_goat) / sum(n)), ")"),
-                      bull_info = paste0(comma(sum(n_bull)), " (", percent(sum(n_bull) / sum(n)), ")"),
-                      horse_info = paste0(comma(sum(n_horse)), " (", percent(sum(n_horse) / sum(n)), ")"),
-                      pig_info = paste0(comma(sum(n_pig)), " (", percent(sum(n_pig) / sum(n)), ")"))) %>%
-  select(-c(n_chicken, n_goat, n_bull, n_horse, n_pig)) %>% 
-  qflextable() %>%
-  set_header_labels(region = "Region", n = "# HH", chicken_info = "Chicken/Poultry/Duck\n(n, %)",
-                    goat_info = "Goat\n(n, %)", bull_info = "Bull\n(n, %)",
-                    horse_info = "Horse\n(n, %)", pig_info = "Pig\n(n, %)") %>%
-  theme_zebra() %>% theme_box() %>%
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-save_as_docx(region_table, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/tables/region_table.docx")
-
-
 # Summarise the diarrhea by any animals -----------------------------------
 
 table1 <- descriptive %>% 
@@ -583,7 +547,7 @@ rural %>%
   align_text_col(align = "center", header = TRUE) %>% 
   add_footer_lines("*Among households that have a child under the age of 5")
 
-# KGC ---------------------------------------------------------------
+# Koppen-Geiger Zones ---------------------------------------------------------------
 
 # Summarise the diarrhea by kgz
 rural %>% 
@@ -1195,56 +1159,12 @@ descriptive %>%
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
   
-  
-
 for_graph <- descriptive %>% 
   group_by(kgc_course, hv007) %>% 
   summarize(
     n_hh = n(),
     avg_rainfall = round(mean(tp_totalminus7_cm, na.rm = TRUE), 2)) %>%
   drop_na(kgc_course)
-
-datapasta::dpasta(for_graph)
-  
-  
-tibble::tribble(
-                                                                             ~kgc_course, ~hv007,  ~n_hh, ~avg_rainfall,
-                                                                                  
-                                                                                   "Dry",   2000,  4454L,          0.47,
-                                                                                   "Dry",   2003,  5025L,          1.79,
-                                                                                   "Dry",   2004,   586L,           1.5,
-                                                                                   "Dry",   2005,  3313L,          2.01,
-                                                                              
-                                                                                   "Dry",   2019,  5861L,          0.53,
-                                                                                   "Dry",   2020,  6086L,          0.05,
-                                                                                   "Dry",   2021, 15905L,          0.99,
-                                                                                   "Dry",   2022,  1545L,          0.18,
-                                                                            
-                                                                             "Temperate",   2015,  9989L,          1.78,
-                                                                             "Temperate",   2016, 10625L,          3.74,
-                                                                             "Temperate",   2017,  2119L,          3.39,
-                                                                             "Temperate",   2018,  5090L,          1.18,
-                                                                             "Temperate",   2019,  2722L,          7.07,
-                                                                             "Temperate",   2020,  1833L,          5.47,
-                                                                             "Temperate",   2021,  4309L,          1.74,
-                                                                             "Temperate",   2022,  3509L,          2.91,
-                                                                              "Tropical",   1990,  3320L,          5.76,
-                                                                              "Tropical",   1992,   271L,             0,
-                                                                              "Tropical",   1993,  4214L,          1.76,
-                                                                              "Tropical",   1994,  4973L,          3.18,
-                                                                              "Tropical",   1995,  1160L,          0.24,
-                                                                              "Tropical",   1996,  3313L,          4.19,
-                                                                     
-                                                                              "Tropical",   2017, 18271L,          2.48,
-                                                                              "Tropical",   2018, 38147L,           2.6,
-                                                                              "Tropical",   2019, 15688L,          5.93,
-                                                                              "Tropical",   2020, 11109L,           1.7,
-                                                                              "Tropical",   2021, 29812L,          2.64,
-                                                                              "Tropical",   2022,  7245L,          2.01
-                                                                             )
-
-
-
 
 # Convert hv007 to factor for correct x-axis ordering
 for_graph$hv007 <- as.factor(for_graph$hv007)
@@ -2082,281 +2002,6 @@ under5_animal %>%
   bg(i = ~ other_present == "No", bg = "#f7d0d0")
 
 
-# Vaccinations ------------------------------------------------------------
-
-# Rotavirus
-under5_animal %>% 
-  group_by(diarrhea_dichot) %>% 
-  summarise(n = n(),
-            zero = sum(h57 == 0, na.rm = TRUE),
-            percent_0 = round((zero/n)*100, digits = 2),
-            one = sum(h57 == 1, na.rm = TRUE),
-            percent_1 = round((one/n)*100, digits = 2),
-            two = sum(h57 == 2, na.rm = TRUE),
-            percent_2 = round((two/n)*100, digits = 2),
-            three = sum(h57 == 3, na.rm = TRUE),
-            percent_3 = round((three/n)*100, digits = 2),
-            eight = sum(h57 == 8, na.rm = TRUE),
-            percent_8 = round((eight/n)*100, digits = 2)) %>%
-  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
-                                  "1" = "Yes",
-                                  .missing = "Unknown")) %>% 
-  arrange(desc(diarrhea_dichot)) %>% 
-  adorn_totals("row",,,,c(n, zero, one, two, three, eight)) %>% 
-  qflextable() %>% 
-  set_header_labels(n = "Number Under 5",  diarrhea_dichot = "Diarrhea?",
-                    zero = "None", percent_0 = "%",
-                    one = "Vax Date", percent_1 = "%",
-                    two = "Mom Report", percent_2 = "%",
-                    three = "Vax Card", percent_3 = "%",
-                    eight = "Don't Know", percent_8 = "%")%>% 
-  add_header_lines(values = c("Rotavirus Vaccination")) %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-under5_animal %>% 
-  group_by(diarrhea_dichot) %>% 
-  summarise(n = n(),
-            zero = sum(h61 == 0, na.rm = TRUE),
-            percent_0 = round((zero/n)*100, digits = 2),
-            one = sum(h61 == 1, na.rm = TRUE),
-            percent_1 = round((one/n)*100, digits = 2),
-            two = sum(h61 == 2, na.rm = TRUE),
-            percent_2 = round((two/n)*100, digits = 2),
-            three = sum(h61 == 3, na.rm = TRUE),
-            percent_3 = round((three/n)*100, digits = 2),
-            eight = sum(h61 == 8, na.rm = TRUE),
-            percent_8 = round((eight/n)*100, digits = 2)) %>%
-  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
-                                  "1" = "Yes",
-                                  .missing = "Unknown")) %>% 
-  arrange(desc(diarrhea_dichot)) %>% 
-  adorn_totals("row",,,,c(n, zero, one, two, three, eight)) %>% 
-  qflextable() %>% 
-  set_header_labels(n = "Number Under 5",  diarrhea_dichot = "Diarrhea?",
-                    zero = "None", percent_0 = "%",
-                    one = "Vax Date", percent_1 = "%",
-                    two = "Mom Report", percent_2 = "%",
-                    three = "Vax Card", percent_3 = "%",
-                    eight = "Don't Know", percent_8 = "%")%>% 
-  add_header_lines(values = c("Hep B Vaccination")) %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-
-under5_animal %>% 
-  group_by(diarrhea_dichot) %>% 
-  summarise(n = n(),
-            zero = sum(h51 == 0, na.rm = TRUE),
-            percent_0 = round((zero/n)*100, digits = 2),
-            one = sum(h51 == 1, na.rm = TRUE),
-            percent_1 = round((one/n)*100, digits = 2),
-            two = sum(h51 == 2, na.rm = TRUE),
-            percent_2 = round((two/n)*100, digits = 2),
-            three = sum(h51 == 3, na.rm = TRUE),
-            percent_3 = round((three/n)*100, digits = 2),
-            eight = sum(h51 == 8, na.rm = TRUE),
-            percent_8 = round((eight/n)*100, digits = 2)) %>%
-  mutate(diarrhea_dichot = recode(diarrhea_dichot, "0" = "No",
-                                  "1" = "Yes",
-                                  .missing = "Unknown")) %>% 
-  arrange(desc(diarrhea_dichot)) %>% 
-  adorn_totals("row",,,,c(n, zero, one, two, three, eight)) %>% 
-  qflextable() %>% 
-  set_header_labels(n = "Number Under 5",  diarrhea_dichot = "Diarrhea?",
-                    zero = "None", percent_0 = "%",
-                    one = "Vax Date", percent_1 = "%",
-                    two = "Mom Report", percent_2 = "%",
-                    three = "Vax Card", percent_3 = "%",
-                    eight = "Don't Know", percent_8 = "%")%>% 
-  add_header_lines(values = c("DPT-HepB-Hib Pentavalent Vaccination")) %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-
-# Quartiles ---------------------------------------------------------------
-
-
-person_level_filter <- rural %>% select(hv246_chicken_poultry_duck_total_cat,
-                                        hv246_bull_cow_cattle_total_cat,
-                                        hv246_goat_sheep_total_cat,
-                                        hv246_horse_donkey_camel_total_cat, b8) %>% 
-                                 filter(b8 <= 4)
-
-# Calculate quantiles for hv246_chicken_poultry_duck_total_cat
-chicken_quantiles <- person_level_filter %>% 
-  filter(hv246_chicken_poultry_duck_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.25),
-    q50 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.5),
-    q75 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.75),
-    q90 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.90),
-    q95 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Chicken/Poultry/Duck")
-
-# Calculate quantiles for hv246_bull_cow_cattle_total_cat
-cattle_quantiles <- person_level_filter %>% 
-  filter(hv246_bull_cow_cattle_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.25),
-    q50 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.5),
-    q75 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.75),
-    q90 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.90),
-    q95 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Bull/Cow/Cattle")
-
-# Calculate quantiles for hv246_bull_cow_cattle_total_cat
-goat_sheep_quantiles <- person_level_filter %>% 
-  filter(hv246_goat_sheep_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_goat_sheep_total_cat, probs = 0.25),
-    q50 = quantile(hv246_goat_sheep_total_cat, probs = 0.5),
-    q75 = quantile(hv246_goat_sheep_total_cat, probs = 0.75),
-    q90 = quantile(hv246_goat_sheep_total_cat, probs = 0.90),
-    q95 = quantile(hv246_goat_sheep_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Goat/Sheep")
-
-
-# Calculate quantiles for hv246_bull_cow_cattle_total_cat
-horse_donkey_quantiles <- person_level_filter %>% 
-  filter(hv246_horse_donkey_camel_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.25),
-    q50 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.5),
-    q75 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.75),
-    q90 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.90),
-    q95 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Horse/Donkey/Camel")
-
-# Combine the tables
-bind_rows(chicken_quantiles, cattle_quantiles, goat_sheep_quantiles, horse_donkey_quantiles) %>% 
-  select(category, everything()) %>% 
-  qflextable() %>% 
-  set_header_labels(category = "Animal Category")%>% 
-  add_header_lines(values = c("Percentiles of Animal Ownership (Person Level)
-                              n = 904,958*")) %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE) %>% 
-  add_footer_lines("*Excludes people older than 5 and children that aren't exposed to each category")
-
-
-hh_level_filter <- rural_hh %>% ungroup() %>% select(hv246_chicken_poultry_duck_total_cat,
-                                       hv246_bull_cow_cattle_total_cat,
-                                       hv246_goat_sheep_total_cat,
-                                       hv246_horse_donkey_camel_total_cat, hh_under5) %>% 
-                                filter(hh_under5 == 1)
-
-
-# Calculate quantiles for hv246_chicken_poultry_duck_total_cat
-chicken_quantiles <- hh_level_filter %>% 
-  filter(hv246_chicken_poultry_duck_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.25),
-    q50 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.5),
-    q75 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.75),
-    q90 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.90),
-    q95 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Chicken/Poultry/Duck")
-
-# Calculate quantiles for hv246_bull_cow_cattle_total_cat
-cattle_quantiles <- hh_level_filter %>% 
-  filter(hv246_bull_cow_cattle_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.25),
-    q50 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.5),
-    q75 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.75),
-    q90 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.90),
-    q95 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Bull/Cow/Cattle")
-
-# Calculate quantiles for hv246_bull_cow_cattle_total_cat
-goat_sheep_quantiles <- hh_level_filter %>% 
-  filter(hv246_goat_sheep_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_goat_sheep_total_cat, probs = 0.25),
-    q50 = quantile(hv246_goat_sheep_total_cat, probs = 0.5),
-    q75 = quantile(hv246_goat_sheep_total_cat, probs = 0.75),
-    q90 = quantile(hv246_goat_sheep_total_cat, probs = 0.90),
-    q95 = quantile(hv246_goat_sheep_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Goat/Sheep")
-
-
-# Calculate quantiles for hv246_bull_cow_cattle_total_cat
-horse_donkey_quantiles <- hh_level_filter %>% 
-  filter(hv246_horse_donkey_camel_total_cat >= 1) %>% 
-  summarise(
-    q25 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.25),
-    q50 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.5),
-    q75 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.75),
-    q90 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.90),
-    q95 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.95)
-  ) %>%
-  mutate(category = "Horse/Donkey/Camel")
-  
-# Combine the tables
-bind_rows(chicken_quantiles, cattle_quantiles, goat_sheep_quantiles, horse_donkey_quantiles) %>% 
-  select(category, everything()) %>% 
-  qflextable() %>% 
-  set_header_labels(category = "Animal Category")%>% 
-  add_header_lines(values = c("Percentiles of Animal Ownership (Household Level)
-                              n = 504,036*")) %>% 
-  theme_zebra() %>% theme_box() %>% 
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE) %>% 
-  add_footer_lines("*Excludes households that don't have a child under 5 and each category excludes households that don't own an animal in the category")
-
-
-# Unadjusted Models ------------------------------------------------------------------
-
-model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + tp_totalminus7 + kgc_course + epe_7_95 +
-                     (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry"),exponentiate = TRUE) %>% bold_labels()
-
-model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present +
-                         (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle"),exponentiate = TRUE) %>% bold_labels()
-
-model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present +
-                         (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep"),exponentiate = TRUE) %>% bold_labels()
-
-model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present +
-                         (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey"),exponentiate = TRUE) %>% bold_labels()
-
-model_pig <- glmer(diarrhea_dichot ~ pig_present +
-                         (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig"),exponentiate = TRUE) %>% bold_labels()
-
-model_other <- glmer(diarrhea_dichot ~ other_present +
-                         (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_other <- model_other %>% tbl_regression(label = list(other_present ~ "Other Animal"),exponentiate = TRUE) %>% bold_labels()
-
-combined_models <- tbl_stack(tbls = list(table_chicken, table_bull, table_goat, table_horse, table_pig, table_other), group_header = "Test")
-
-combined_models <- combined_models %>%
-  modify_header(label = "**Animal Type**")
-
-combined_models
-
-
 # Unadjusted Models (Animals Only) ------------------------------------------------------------------
 
 chicken_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
@@ -2400,82 +2045,6 @@ horse_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_pre
 
 model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present +
                        (1|name_year/hv001), data = horse_only, family = binomial)
-
-table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey"),exponentiate = TRUE) %>% bold_labels() %>% add_n()
-
-model_pig <- glmer(diarrhea_dichot ~ pig_present +
-                     (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig"),exponentiate = TRUE) %>% bold_labels()
-
-model_other <- glmer(diarrhea_dichot ~ other_present +
-                       (1|name_year/hv001), data = under5_animal, family = binomial)
-
-table_other <- model_other %>% tbl_regression(label = list(other_present ~ "Other Animal"),exponentiate = TRUE) %>% bold_labels()
-
-combined_models <- tbl_stack(tbls = list(table_chicken, table_bull, table_goat, table_horse))
-
-combined_models <- combined_models %>%
-  modify_header(label = "**Animal Type**")
-
-combined_models
-
-# Unadjusted Models (High Exposures Only) ------------------------------------------------------------------
-
-chicken_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                                         chicken_poultry_duck_present, goat_sheep_present, hv246_chicken_poultry_duck_total_cat,
-                                         diarrhea_dichot, name_year, hv001) %>% 
-                                  filter(bull_cow_cattle_present == 0 & horse_donkey_present == 0 & goat_sheep_present == 0)
-
-chicken_high <- chicken_only %>% filter(hv246_chicken_poultry_duck_total_cat >= 15 | hv246_chicken_poultry_duck_total_cat == 0)
-
-model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present +
-                         (1|name_year/hv001), data = chicken_high, family = binomial)
-
-table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry"),exponentiate = TRUE) %>% 
-                 bold_labels() %>% add_n()
-
-
-
-bull_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                                      chicken_poultry_duck_present, goat_sheep_present, hv246_bull_cow_cattle_total_cat,
-                                      diarrhea_dichot, name_year, hv001) %>% 
-                              filter(chicken_poultry_duck_present == 0 & horse_donkey_present == 0 & goat_sheep_present == 0)
-
-bull_high <- bull_only %>% filter(hv246_bull_cow_cattle_total_cat >= 10 | hv246_bull_cow_cattle_total_cat == 0)
-
-model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present +
-                      (1|name_year/hv001), data = bull_high, family = binomial)
-
-table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle"),exponentiate = TRUE) %>% 
-              bold_labels() %>% add_n()
-
-
-
-
-goat_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                                      chicken_poultry_duck_present, goat_sheep_present, hv246_goat_sheep_total_cat,
-                                      diarrhea_dichot, name_year, hv001) %>% 
-                               filter(chicken_poultry_duck_present == 0 & horse_donkey_present == 0 & bull_cow_cattle_present == 0)
-
-goat_high <- goat_only %>% filter(hv246_goat_sheep_total_cat >= 8 | hv246_goat_sheep_total_cat == 0)
-
-model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present +
-                      (1|name_year/hv001), data = goat_high, family = binomial)
-
-table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep"),exponentiate = TRUE) %>% bold_labels() %>% add_n()
-
-
-
-horse_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                                       chicken_poultry_duck_present, goat_sheep_present, hv246_horse_donkey_total_cat,
-                                       diarrhea_dichot, name_year, hv001) %>% 
-                                filter(chicken_poultry_duck_present == 0 & goat_sheep_present == 0 & bull_cow_cattle_present == 0)
-
-horse_high <- horse_only %>% filter(hv246_horse_donkey_total_cat >= 1 | hv246_horse_donkey_total_cat == 0)
-
-model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present +
-                       (1|name_year/hv001), data = horse_high, family = binomial)
 
 table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey"),exponentiate = TRUE) %>% bold_labels() %>% add_n()
 
@@ -2590,108 +2159,6 @@ combined_models <- combined_models %>%
 combined_models
 
 save_as_docx(combined_models, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/combined_models.docx")
-
-
-
-# Adjusted, No EPE --------------------------------------------------
-
-noepe <- descriptive %>%  
-  filter(hv246 == 1)                     # Only those with Animals
-
-noepe <- noepe %>% drop_na(hv270)
-
-under5_animal_model <- noepe %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
-                                                bull_cow_cattle_present, region_combined, horse_donkey_present,
-                                                hv270, b8, name_year, hv001)
-
-model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + region_combined + hv270 + b8 +
-                         (1|name_year/hv001), data = under5_animal_model, family = binomial,
-                       control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
-
-
-table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry", region_combined ~ "Region",
-                                                               hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                                  exponentiate = TRUE) %>% bold_labels()
-
-saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_chicken_noepe.rds")
-
-model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + region_combined + hv270 + b8 +
-                      (1|name_year/hv001), data = under5_animal_model, family = binomial,
-                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
-
-
-table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle", region_combined ~ "Region",
-                                                         hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                            exponentiate = TRUE) %>% bold_labels()
-
-saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_bull_noepe.rds")
-
-model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + region_combined + hv270 + b8 +
-                      (1|name_year/hv001), data = under5_animal_model, family = binomial,
-                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
-
-table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep", region_combined ~ "Region",
-                                                         hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                            exponentiate = TRUE) %>% bold_labels()
-
-saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_goat_noepe.rds")
-
-
-model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + region_combined + hv270 + b8 +
-                       (1|name_year/hv001), data = under5_animal_model, family = binomial,
-                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
-
-
-table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey", region_combined ~ "Region",
-                                                           hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                              exponentiate = TRUE) %>% bold_labels()
-
-saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_horse_noepe.rds")
-
-
-model_pig <- glmer(diarrhea_dichot ~ pig_present + region_combined + hv270 + b8 +
-                     (1|name_year/hv001), data = under5_animal_model, family = binomial,
-                   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
-
-table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig", region_combined ~ "Region",
-                                                       hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                          exponentiate = TRUE) %>% bold_labels()
-
-saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_pig_noepe.rds")
-
-
-combined_models <- tbl_merge(tbls = list(table_chicken, table_bull, table_goat, table_horse, table_pig),
-                             tab_spanner = c("**Chicken/Duck/Poultry**", "**Bull/Cow/Cattle**",
-                                             "**Goat/Sheep**", "**Horse/Donkey**",
-                                             "**Pig**")) %>%
-  
-  # combined_models <- combined_models %>%
-  modify_table_body(~.x %>%
-                      dplyr::arrange(factor(var_label, levels =
-                                              c("Chicken/Duck/Poultry", "Bull/Cow/Cattle",
-                                                "Goat/Sheep", "Horse/Donkey",
-                                                "Pig", "Region", "SES Group",
-                                                "Age of Child (Years)"))))
-
-
-combined_models <- combined_models %>% as_gt()
-
-
-combined_models <- combined_models %>% 
-  tab_style(
-    style = cell_borders(
-      sides = c("left", "right"),
-      color = "gray80",
-      weight = px(2),
-      style = "solid"),
-    locations = list(cells_body(),
-                     cells_column_labels(),
-                     cells_column_spanners()))
-
-combined_models
-
-save_as_docx(combined_models, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/epe_models.docx")
-
 
 
 # Model Tables ------------------------------------------------------------

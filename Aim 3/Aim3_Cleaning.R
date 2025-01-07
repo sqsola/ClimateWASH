@@ -427,7 +427,7 @@ codebook <- codebook %>% mutate(HV246_animal_recode = case_when(str_detect(HV246
 codebook$HV246_animal_recode <- paste0("hv246_", codebook$HV246_animal_recode)
 
 # save the codebook as a .rds file
-saveRDS(codebook, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/codebook.rds")
+saveRDS(codebook, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/codebook.rds")
 
 # Clean Unneeded Columns --------------------------------------------------
 
@@ -437,18 +437,18 @@ data_aim2 <- data_aim2 %>%
 # Output the datasets -----------------------------------------------------
 
 # Save the full dataset
-saveRDS(data_aim2, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/data_aim2.rds")
+saveRDS(data_aim2, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/data_aim2.rds")
 
 ## Save the urban dataset -------------------------------------------------
 urban <- data_aim2 %>% filter(URBAN_RURA == "U")
-saveRDS(urban, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/urban.rds")
+saveRDS(urban, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/urban.rds")
 
 # Household Level 
 urban_hh <- urban %>%
             group_by(name_year) %>%
             distinct(hhid, .keep_all = TRUE)
 
-saveRDS(urban_hh, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/urban_hh.rds")
+saveRDS(urban_hh, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/urban_hh.rds")
 
 # Remove urban dataset
 rm(urban)
@@ -456,21 +456,21 @@ gc()
 
 ## Save the rural dataset -------------------------------------------------
 rural <- data_aim2 %>% filter(URBAN_RURA == "R")
-saveRDS(rural, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural.rds")
+saveRDS(rural, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/rural.rds")
 
 # Household Level 
 rural_hh <- rural %>%
             group_by(name_year) %>%
             distinct(hhid, .keep_all = TRUE)
 
-saveRDS(rural_hh, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural_hh.rds")
+saveRDS(rural_hh, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/rural_hh.rds")
 
 
 # Descriptive Dataset -----------------------------------------------------
 descriptive <- rural %>% filter(b8 <= 4) %>%    # Only those under 5
                          filter(b5 == 1)        # Only include those that are still alive
 
-saveRDS(descriptive, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/descriptive.rds")
+saveRDS(descriptive, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/descriptive.rds")
 
 # Under 5 with Animals ----------------------------------------------------
 under5_animal <- rural %>% filter(b8 <= 4) %>%                        # Only those under 5
@@ -478,7 +478,7 @@ under5_animal <- rural %>% filter(b8 <= 4) %>%                        # Only tho
                            filter(b5 == 1) %>%                        # Only include those that are still alive
                            filter(!between(LATNUM, -0.0001, 0.0001))  # Remove unrealistic GPS
 
-saveRDS(under5_animal, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_animal.rds")
+saveRDS(under5_animal, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/under5_animal.rds")
 
 # Rural Under 5 Diarrhea with Animals -------------------------------------
 under5_dia <- rural %>% filter(b8 <= 4) %>%                        # Only those under 5
@@ -487,4 +487,4 @@ under5_dia <- rural %>% filter(b8 <= 4) %>%                        # Only those 
                         filter(b5 == 1) %>%                        # Only include those that are still alive
                         filter(!between(LATNUM, -0.0001, 0.0001))  # Remove unrealistic GPS
 
-saveRDS(under5_dia, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_dia.rds")
+saveRDS(under5_dia, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/under5_dia.rds")
