@@ -94,15 +94,17 @@ Title: The Influence of Precipitation, Runoff, and Temperature on Water Collecti
 
 ### **Aim 2**
 
-Title: Association of Animal Ownership with under-5 Diarrhea Prevalence in sub-Saharan Africa
+Title: Association of Animal Ownership with under-5 Diarrhea Prevalence in sub-Saharan Africa.
 
 ### **Aim 3**
 
-Title: Association of Animal Ownership and Extreme Precipitation Events with under-5 Diarrhea Prevalence in sub-Saharan Africa
+Title: Association of Animal Ownership and Extreme Precipitation Events with under-5 Diarrhea Prevalence in sub-Saharan Africa.
 
 ### **Aim 4**
 
-Title: TBD
+Title: Clustering of Open Defecation Behaviors in Odisha, India
+
+Note: Code for Aim 4 is not included due to it containing PII.
 
 ## Files for Aims
 
@@ -122,7 +124,7 @@ This code does the exploratory data analysis (EDA) and further analysis for Aim 
 
 ### **Aim 2 & 3**
 
-Aims 2 & 3 are focused on prevalence of diarrhea in children under the age of 5 in the household and its associations with animal ownership.
+Aims 2 & 3 are focused on prevalence of diarrhea in children under the age of 5 in the household and its associations with animal ownership and extreme precipitation events. The data sources for Aims 2 & 3 are almost the same.
 
 #### Aim2_Cleaning.R
 
