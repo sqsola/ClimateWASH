@@ -568,7 +568,7 @@ rural %>%
   align_text_col(align = "center", header = TRUE)
 
 descriptive <- descriptive %>% 
-  mutate(tp_totalminus7_cm = tp_totalminus7 * 100)
+  mutate(tp_totalminus7 = tp_totalminus7 * 100)
 
 
 
@@ -583,7 +583,7 @@ kgc_table <- descriptive %>%
   group_by(kgc_course) %>%
   summarise(
     n = n(),
-    avg_rainfall = round(mean(tp_totalminus7_cm, na.rm = TRUE), 2),
+    avg_rainfall = round(mean(tp_totalminus7, na.rm = TRUE), 2),
     ses = round(mean(hv270, na.rm = TRUE), 2),
     n_chicken = sum(hv246_chicken_poultry_duck_total_cat >= 1, na.rm = TRUE),
     n_goat = sum(hv246_goat_sheep_total_cat >= 1, na.rm = T),
@@ -1140,16 +1140,11 @@ chicken <- rural %>%
 
 # Total Precipitation Average ---------------------------------------------
 
-  descriptive <- descriptive %>% 
-    mutate(tp_totalminus7_cm = tp_totalminus7 * 100)
-  
-  
-  
 descriptive %>% 
     group_by(kgc_course) %>% 
     summarize(
       n_hh = n(),
-      avg_rainfall = round(mean(tp_totalminus7_cm, na.rm = TRUE), 2)) %>%
+      avg_rainfall = round(mean(tp_totalminus7, na.rm = TRUE), 2)) %>%
   mutate(kgc_course = recode(kgc_course, .missing = "Unknown")) %>% 
   adorn_totals("row",,,,c(n_hh)) %>% 
   qflextable() %>% 
@@ -1163,7 +1158,7 @@ for_graph <- descriptive %>%
   group_by(kgc_course, hv007) %>% 
   summarize(
     n_hh = n(),
-    avg_rainfall = round(mean(tp_totalminus7_cm, na.rm = TRUE), 2)) %>%
+    avg_rainfall = round(mean(tp_totalminus7, na.rm = TRUE), 2)) %>%
   drop_na(kgc_course)
 
 # Convert hv007 to factor for correct x-axis ordering
