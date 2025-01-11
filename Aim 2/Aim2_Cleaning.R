@@ -46,7 +46,7 @@ data_aim2 <- data_aim2 %>%
 # Clean KGC ---------------------------------------------------------------
 
 # Open the fine resolution KGZ file
-kgz_fine <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/kgc_small.rds") %>% select(LATNUM, LONGNUM, ClimateZ)
+kgz_fine <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/kgz/kgc_small.rds") %>% select(LATNUM, LONGNUM, ClimateZ)
 
 data_aim2 <- left_join(data_aim2, kgz_fine, by = c("LATNUM", "LONGNUM"))
 
@@ -79,7 +79,6 @@ data_aim2 <- data_aim2 %>% mutate(kgc_course = case_when(
   ClimateZ %in% c("ET", "Ocean") ~ "Other",
   TRUE ~ NA_character_))
 
-
 # Coalesce the wlthind5 and hv270 variables -------------------------------
 
 data_aim2 <- data_aim2 %>%
@@ -92,17 +91,6 @@ data_aim2 <- data_aim2 %>%
                mutate(diarrhea_dichot = 
                         case_when((h11 == 1 | h11 == 2) ~ 1, 
                                    TRUE ~ 0))
-
-# Refactor SES ------------------------------------------------------------
-
-data_aim2 <- data_aim2 %>%
-               mutate(hv270 = fct_recode(
-                 fct_relevel(as.factor(hv270), "1", "2", "3", "4", "5"),
-                 "Poorest" = "1",
-                 "Poor" = "2",
-                 "Middle" = "3",
-                 "Rich" = "4",
-                 "Richest" = "5"))
 
 # Add in Country Name -----------------------------------------------------
 
@@ -267,6 +255,13 @@ data_aim2 <- data_aim2 %>%
       pig_present == 0 &
       other_present == 0 &
       animal_combo == 0 ~ "horse/donkey only",
+    pig_present == 1 &
+    horse_donkey_present == 0 &
+      goat_sheep_present == 0 &
+      chicken_poultry_duck_present == 0 &
+      bull_cow_cattle_present == 0 &
+      other_present == 0 &
+      animal_combo == 0 ~ "pig only",
     animal_combo_number >= 2 ~ "multispecies",
     TRUE ~ "other"))
 
@@ -289,27 +284,7 @@ data_aim2 <- data_aim2 %>%
 data_aim2 <- data_aim2 %>% 
                mutate(hv246 = ifelse(name_year == "UG_06" & is.na(hv246) & animal_total != 0, 1, hv246))
 
-# EPE ---------------------------------------------------------------------
-# Calculate the EPE
-# EPE = single day that was above the 95% of the given timeframe
-data_aim2 <- data_aim2 %>%
-              mutate(across(starts_with("tp_"), ~ case_when(. < 0.00000006 ~ 0, TRUE ~ .))) %>%
-              mutate(tp =  case_when(tp < 0.00000006 ~ 0, TRUE ~ tp)) %>% 
 
-               mutate(epe_7_95 = rowSums(select(., num_range("tp_", 1:7)) > tp_totalminus7_95)) %>% 
-               mutate(epe_14_95 = rowSums(select(., num_range("tp_", 1:14)) > tp_totalminus14_95)) %>% 
-               mutate(epe_30_95 = rowSums(select(., num_range("tp_", 1:30)) > tp_totalminus30_95)) %>% 
-               mutate(epe_60_95 = rowSums(select(., num_range("tp_", 1:60)) > tp_totalminus60_95)) %>% 
-               mutate(epe_814_95 = rowSums(select(., num_range("tp_", 8:14)) > tp_totalminus8_14_95)) %>% 
-               mutate(epe_1521_95 = rowSums(select(., num_range("tp_", 15:21)) > tp_totalminus15_21_95)) %>% 
-               mutate(epe_821_95 = rowSums(select(., num_range("tp_", 8:21)) > tp_totalminus8_21_95)) %>% 
-               mutate(epe_1528_95 = rowSums(select(., num_range("tp_", 15:28)) > tp_totalminus15_28_95)) %>% 
-               mutate(epe_2228_95 = rowSums(select(., num_range("tp_", 22:28)) > tp_totalminus22_28_95)) %>% 
-               mutate(epe_3060_95 = rowSums(select(., num_range("tp_", 30:60)) > tp_totalminus30_60_95)) %>% 
-               mutate(epe_1560_95 = rowSums(select(., num_range("tp_", 15:60)) > tp_totalminus15_60_95))
-
-data_aim2 <- data_aim2 %>%
-                mutate(across(starts_with("epe") & ends_with("_95"), ~ifelse(. >= 1, 1, 0), .names = "{.col}_binary"))
 
 # Codebook Animals --------------------------------------------------------
 
