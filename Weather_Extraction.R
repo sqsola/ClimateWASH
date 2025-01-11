@@ -297,20 +297,12 @@ for (obs in 1:nrow(unique_obs)) {
 # Bind processed data back to original df
 weather_survey_coords <- cbind(unique_obs, weather_survey)
 
-# Convert Kelvin to Celsius for skin temp, 2m temp, 2m dewpoint
-weather_survey_coords_cel <- weather_survey_coords %>% 
-                                mutate_at(vars(starts_with(c("skt","t2m","d2m"))),  ~.x - 273.15)
-
-# Convert m to cm for surface runoff (sro) and total precipitation (tp)
-weather_survey_coords_cel_cm <- weather_survey_coords_cel %>% 
-                                 mutate_at(vars(starts_with(c("sro", "tp"))),  ~.x * 100)
-
 # Assign Köppen-Geiger Zone
-weather_survey_coords_cel_cm <- weather_survey_coords_cel_cm %>% 
+weather_survey_coords <- weather_survey_coords %>% 
                                    mutate(rndCoord.lon = RoundCoordinates(.$LONGNUM, res = "fine", latlong = "lon"),
                                           rndCoord.lat = RoundCoordinates(.$LATNUM, res = "fine", latlong = "lat"))
 
-weather_final <- weather_survey_coords_cel_cm %>% 
+weather_final <- weather_survey_coords %>% 
                       mutate(kgc = LookupCZ(., res = "fine", rc = FALSE))
 
 # Save the outputs
