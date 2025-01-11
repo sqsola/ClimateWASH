@@ -285,18 +285,19 @@ rural_hh %>% filter(!animal_singleonly %in% c("none", "other")) %>%
              bg(i = ~ horse_donkey_present == "No", j = ~ horse_donkey_present, bg = "#f58e8e")
 
 ## Venn Diagram 5 way -----------------------------------------------------
-rural_2 <- rural %>%
-  group_by(name_year) %>%
-  distinct(hhid, .keep_all = TRUE) %>% 
-  ungroup() %>% 
+rural_2 <- descriptive %>%
+  # group_by(name_year) %>%
+  # distinct(hhid, .keep_all = TRUE) %>% 
+  # ungroup() %>% 
+  filter(other_present == 0 ) %>% 
   select(bull_cow_cattle_present, horse_donkey_present,       
          chicken_poultry_duck_present, goat_sheep_present, pig_present)
 
 my_list <- list("Bull/Cow/Cattle" = which(rural_2$bull_cow_cattle_present == 1), 
-                "Chicken/Poultry/Duck" = which(rural_2$chicken_poultry_duck_present == 1),
+                "Poultry (Chicken/Duck)" = which(rural_2$chicken_poultry_duck_present == 1),
                 "Goat/Sheep" = which(rural_2$goat_sheep_present == 1),
-                "Horse/Donkey/Camel" = which(rural_2$horse_donkey_present == 1),
-                "pig" = which(rural_2$pig_present == 1))
+                "Horse/Donkey" = which(rural_2$horse_donkey_present == 1),
+                "Pig" = which(rural_2$pig_present == 1))
                 
 ggVennDiagram(my_list, label_alpha = 0, set_color = c("blue","darkred","darkgreen","black", "darkorange"), set_size = 6,
               label_percent_digit = 1) + 
@@ -339,19 +340,19 @@ rural_hh %>% filter(!animal_singleonly %in% c("none", "other")) %>%
              bg(i = ~ pig_present == "No", j = ~ pig_present, bg = "#f58e8e")
 
 ## Venn Diagram 6 way ------------------------------------------------------
-rural_2 <- rural %>%
+rural_2 <- descriptive %>%
   group_by(name_year) %>%
   distinct(hhid, .keep_all = TRUE) %>% 
   ungroup() %>% 
   select(bull_cow_cattle_present, horse_donkey_present,       
-         chicken_poultry_duck_present, goat_sheep_present, pig_present, other_present)
+         chicken_poultry_duck_present, goat_sheep_present, pig_present, animal_combo)
 
 my_list <- list("Bull/Cow/Cattle" = which(rural_2$bull_cow_cattle_present == 1), 
                 "Chicken/Poultry/Duck" = which(rural_2$chicken_poultry_duck_present == 1),
                 "Goat/Sheep" = which(rural_2$goat_sheep_present == 1),
                 "Horse/Donkey/Camel" = which(rural_2$horse_donkey_present == 1),
-                "pig" = which(rural_2$pig_present == 1),
-                "Other" = which(rural_2$other_present == 1))
+                "Pig" = which(rural_2$pig_present == 1),
+                "Other" = which(rural_2$other == 1))
 
 
 ggVennDiagram(my_list, label_alpha = 0, set_color = c("blue","darkred","darkgreen","black", "orange", "purple"), set_size = 6,
@@ -483,13 +484,28 @@ table2 <- descriptive %>%
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
 
-
-round(mean(descriptive$animal_total, na.rm = TRUE), 2)
-
-descriptive$animal_total
-
 save_as_docx(table2, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/aim2_table2.docx")
 
+# Summarise the diarrhea by total animals and SES
+descriptive %>% 
+  mutate(animal_total_cut = if_else(is.na(animal_total_cut), "Unknown Animal", as.character(animal_total_cut))) %>%
+  group_by(animal_total_cut) %>% 
+  summarise(n = n(),
+            avg_num_animal = round(mean(animal_total, na.rm = TRUE), 2),
+            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
+  mutate(animal_total_cut = recode_factor(animal_total_cut, "(0,3]" = "1-3", "(3,7]" = "4-7",
+                                          "(7,13]" = "8-13", "(13,25]" = "14-25",
+                                          "(25,Inf]" = "26-475", .default = "No Animals")) %>%
+  arrange(animal_total_cut) %>% 
+  adorn_totals("row",,,,c(n)) %>% 
+  qflextable() %>% 
+  set_header_labels(animal_total_cut = "Number of Animals in Household", n = "Number of People",
+                    avg_num_animal = "Average Number of Animals", ses = "Average SES Level")%>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
+
+descriptive %>% tabyl(animal_total_cut, hv270)
 
 
 # Summarise the diarrhea by number of different animals exposed to
@@ -519,10 +535,10 @@ table3 <- descriptive %>%
   mutate(animal_singleonly = recode(animal_singleonly, `none` = "No Animals", `chicken/poultry/duck only` = "Chicken/Poultry/Duck Only", 
                                     `goat/sheep only` = "Goat/Sheep Only", `bull/cow/cattle only` = "Bull/Cow/Cattle Only",
                                     `horse/donkey only` = "Horse/Donkey Only", `multispecies` = ">1 Species", 
-                                    `other` = "Other")) %>%
+                                    `pig only` = "Pig Only", `other` = "Other")) %>%
   mutate(animal_singleonly = factor(animal_singleonly, levels = c("No Animals", "Chicken/Poultry/Duck Only", "Goat/Sheep Only",
                                                                   "Bull/Cow/Cattle Only", "Horse/Donkey Only",  ">1 Species",
-                                                                  "Other"))) %>%
+                                                                  "Pig Only", "Other"))) %>%
   arrange(animal_singleonly) %>% 
   adorn_totals("row",,,,c(n, n_under5, num_diarrhea)) %>%
   qflextable() %>% 
@@ -632,52 +648,72 @@ save_as_docx(table4, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Ai
 
 ## Animal and SES Trend ----------------------------------------------------
 
-# Chickens / Poultry
-chicken <- rural %>% 
+# Overall Ownership
+overall <- descriptive %>% 
+  group_by(animal_total) %>% 
+  summarise(n_under5 = sum(b8 <= 4, na.rm = TRUE),
+            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
+            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
+            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
+  filter(!num_diarrhea == 0) %>% 
+  filter(animal_total <= 500)
+
+# Perform Pearson correlation test
+correlation_test <- cor.test(overall$animal_total, overall$ses, method = "pearson")
+
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
+
+# Create the plot with correlation annotation
+ggplot(data = overall, aes(y = ses, x = animal_total)) + 
+  geom_point() +
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  labs(x = "Number of Total Animals Owned",
+       y = "SES Level") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(overall$animal_total) + 5, 
+           y = max(overall$ses) - 0.3, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+
+# Chickens
+chicken <- descriptive %>% 
   group_by(hv246_chicken_poultry_duck_total_cat) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
+  summarise(n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
             ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
   filter(!num_diarrhea == 0) %>% 
   filter(hv246_chicken_poultry_duck_total_cat <= 100)
 
-ggplot(data = chicken, aes(y=ses, x=hv246_chicken_poultry_duck_total_cat)) + 
+# Perform Pearson correlation test
+correlation_test <- cor.test(chicken$hv246_chicken_poultry_duck_total_cat, chicken$ses, method = "pearson")
+
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
+
+# Create the plot with correlation annotation
+ggplot(data = chicken, aes(y = ses, x = hv246_chicken_poultry_duck_total_cat)) + 
   geom_point() +
-  geom_smooth(color = "blue", fill = "lightblue") +
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
   labs(x = "Number of Chickens/Poultry/Duck",
        y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()+
-  annotate("text", x = Inf, y = Inf, label = paste("Number of observations:", nrow(chicken)), 
-           hjust = 1.5, vjust = 1.5, size = 8, color = "black")
-
-
-
-chicken <- rural %>% 
-  group_by(hv246_chicken_poultry_duck_total_cat) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
-            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
-            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270a, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_chicken_poultry_duck_total_cat <= 100)
-
-ggplot(data = chicken, aes(y=ses, x=hv246_chicken_poultry_duck_total_cat)) + 
-  geom_point() +
-  geom_smooth(color = "darkgreen", fill = "lightgreen") +
-  labs(x = "Number of Chickens/Poultry/Duck",
-       y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
-
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(chicken$hv246_chicken_poultry_duck_total_cat) + 5, 
+           y = max(chicken$ses) - 0.3, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
 
 # goat / sheep
-goat <- rural %>% 
+goat <- descriptive %>% 
   group_by(hv246_goat_sheep_total_cat) %>% 
   summarise(n = n(),
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
@@ -687,37 +723,31 @@ goat <- rural %>%
   filter(!num_diarrhea == 0) %>% 
   filter(hv246_goat_sheep_total_cat <= 100)
 
-ggplot(data = goat, aes(y=ses, x=hv246_goat_sheep_total_cat)) + 
+# Perform Pearson correlation test
+correlation_test <- cor.test(goat$hv246_goat_sheep_total_cat, goat$ses, method = "pearson")
+
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
+
+# Create the plot with correlation annotation
+ggplot(data = goat, aes(y = ses, x = hv246_goat_sheep_total_cat)) + 
   geom_point() +
-  geom_smooth(color = "blue", fill = "lightblue") +
-  labs(x = "Number of Goat/Sheep",
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  labs(x = "Number of Goat and Sheep",
        y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(goat$hv246_goat_sheep_total_cat) + 5, 
+           y = max(goat$ses) - 0.3, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
 
-
-goat <- rural %>% 
-  group_by(hv246_goat_sheep_total_cat) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
-            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
-            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270a, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_goat_sheep_total_cat <= 100)
-
-ggplot(data = goat, aes(y=ses, x=hv246_goat_sheep_total_cat)) + 
-  geom_point() +
-  geom_smooth(color = "darkgreen", fill = "lightgreen") +
-  labs(x = "Number of Goat/Sheep",
-       y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
 
 # cattle/cow/bull
-bull <- rural %>% 
+bull <- descriptive %>% 
   group_by(hv246_bull_cow_cattle_total_cat) %>% 
   summarise(n = n(),
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
@@ -727,38 +757,31 @@ bull <- rural %>%
   filter(!num_diarrhea == 0) %>% 
   filter(hv246_bull_cow_cattle_total_cat <= 100)
 
-ggplot(data = bull, aes(y=ses, x=hv246_bull_cow_cattle_total_cat)) + 
+# Perform Pearson correlation test
+correlation_test <- cor.test(bull$hv246_bull_cow_cattle_total_cat, bull$ses, method = "pearson")
+
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
+
+# Create the plot with correlation annotation
+ggplot(data = bull, aes(y = ses, x = hv246_bull_cow_cattle_total_cat)) + 
   geom_point() +
-  geom_smooth(color = "blue", fill = "lightblue") +
-  labs(x = "Number of Bull/Cow/Cattle",
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  labs(x = "Number of Bulls and Cows",
        y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
-
-
-bull <- rural %>% 
-  group_by(hv246_bull_cow_cattle_total_cat) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
-            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
-            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270a, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_bull_cow_cattle_total_cat <= 100)
-
-ggplot(data = bull, aes(y=ses, x=hv246_bull_cow_cattle_total_cat)) + 
-  geom_point() +
-  geom_smooth(color = "darkgreen", fill = "lightgreen") +
-  labs(x = "Number of Bull/Cow/Cattle",
-       y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(bull$hv246_bull_cow_cattle_total_cat) + 5, 
+           y = max(bull$ses) - 0.3, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
 
 
 # horse/donkey
-horse <- rural %>% 
+horse <- descriptive %>% 
   group_by(hv246_horse_donkey_total_cat) %>% 
   summarise(n = n(),
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
@@ -768,36 +791,30 @@ horse <- rural %>%
   filter(!num_diarrhea == 0) %>% 
   filter(hv246_horse_donkey_total_cat <= 25)
 
-ggplot(data = horse, aes(y=ses, x=hv246_horse_donkey_total_cat)) + 
-  geom_point() +
-  geom_smooth(color = "blue", fill = "lightblue") +
-  labs(x = "Number of Horse/Donkey",
-       y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
+# Perform Pearson correlation test
+correlation_test <- cor.test(horse$hv246_horse_donkey_total_cat, horse$ses, method = "pearson")
 
-horse <- rural %>% 
-  group_by(hv246_horse_donkey_total_cat) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
-            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
-            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270a, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_horse_donkey_total_cat <= 25)
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
 
-ggplot(data = horse, aes(y=ses, x=hv246_horse_donkey_total_cat)) + 
+# Create the plot with correlation annotation
+ggplot(data = horse, aes(y = ses, x = hv246_horse_donkey_total_cat)) + 
   geom_point() +
-  geom_smooth(color = "darkgreen", fill = "lightgreen") +
-  labs(x = "Number of Horse/Donkey",
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  labs(x = "Number of Horses and Donkeys",
        y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(horse$hv246_horse_donkey_total_cat) + 5, 
+           y = max(horse$ses) - 0.3, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
 
 # pig
-pig <- rural %>% 
+pig <- descriptive %>% 
   group_by(hv246_pig_total_cat) %>% 
   summarise(n = n(),
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
@@ -807,37 +824,31 @@ pig <- rural %>%
   filter(!num_diarrhea == 0) %>% 
   filter(hv246_pig_total_cat <= 30)
 
-ggplot(data = pig, aes(y=ses, x=hv246_pig_total_cat)) + 
+# Perform Pearson correlation test
+correlation_test <- cor.test(pig$hv246_pig_total_cat, pig$ses, method = "pearson")
+
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
+
+# Create the plot with correlation annotation
+ggplot(data = pig, aes(y = ses, x = hv246_pig_total_cat)) + 
   geom_point() +
-  geom_smooth(color = "blue", fill = "lightblue") +
-  labs(x = "Number of Pig",
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  labs(x = "Number of Pigs",
        y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(pig$hv246_pig_total_cat) + 3, 
+           y = max(pig$ses) - 0.25, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
 
-
-pig <- rural %>% 
-  group_by(hv246_pig_total_cat) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
-            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
-            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270a, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_pig_total_cat <= 30)
-
-ggplot(data = pig, aes(y=ses, x=hv246_pig_total_cat)) + 
-  geom_point() +
-  geom_smooth(color = "darkgreen", fill = "lightgreen") +
-  labs(x = "Number of Pig",
-       y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
 
 # other
-other <- rural %>% 
+other <- descriptive %>% 
   group_by(hv246_other_total_cat) %>% 
   summarise(n = n(),
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
@@ -847,36 +858,72 @@ other <- rural %>%
   filter(!num_diarrhea == 0) %>% 
   filter(hv246_other_total_cat <= 50)
 
-ggplot(data = other, aes(y=ses, x=hv246_other_total_cat)) + 
-  geom_point() +
-  geom_smooth(color = "blue", fill = "lightblue") +
-  labs(x = "Number of Other Animals",
-       y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
+# Perform Pearson correlation test
+correlation_test <- cor.test(other$hv246_other_total_cat, other$ses, method = "pearson")
 
-other <- rural %>% 
-  group_by(hv246_other_total_cat) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
-            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
-            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270a, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_other_total_cat <= 50)
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
 
-ggplot(data = other, aes(y=ses, x=hv246_other_total_cat)) + 
+# Create the plot with correlation annotation
+ggplot(data = other, aes(y = ses, x = hv246_other_total_cat)) + 
   geom_point() +
-  geom_smooth(color = "darkgreen", fill = "lightgreen") +
-  labs(x = "Number of Other Animals",
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  labs(x = "Number of Pigs",
        y = "SES Level") +
-  scale_x_continuous(expand = c(0,0))+
-  scale_y_continuous(expand = c(0,0))+
-  theme_bw()
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(other$hv246_other_total_cat) + 3, 
+           y = max(other$ses) - 0.25, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
 
 
 # Animal Diarrhea Trend ---------------------------------------------------
+
+# Overall Ownership
+overall <- descriptive %>% 
+  group_by(animal_total) %>% 
+  summarise(n_under5 = sum(b8 <= 4, na.rm = TRUE),
+            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
+            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
+            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
+  filter(!num_diarrhea == 0) %>% 
+  # Censor all those where num_diarrhea was less than 5
+  filter(animal_total <= 100)
+
+# Perform Pearson correlation test
+correlation_test <- cor.test(overall$animal_total, overall$percent_diarrhea, method = "pearson")
+
+# Extract correlation coefficient and p-value
+correlation_coefficient <- correlation_test$estimate
+p_value <- correlation_test$p.value
+
+# Create the plot with correlation annotation
+ggplot(data = overall, aes(y = percent_diarrhea, x = animal_total)) + 
+  geom_point() +
+  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  labs(x = "Number of Total Animals Owned",
+       y = "Percent Diarrhea") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  annotate("label", x = min(overall$animal_total) + 5, 
+           y = max(overall$percent_diarrhea) - 0.3, 
+           label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
+                          "\nP-value: ", format(p_value, digits = 2)), 
+           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+
+
+
+
+
+
+
+
+
 table(Hmisc::cut2(rural$hv246_chicken_poultry_duck_total_cat, g=10))
 
 rural <- rural %>% 
