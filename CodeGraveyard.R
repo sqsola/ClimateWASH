@@ -710,8 +710,7 @@ chicken_quantiles <- hh_level_filter %>%
     q50 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.5),
     q75 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.75),
     q90 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.90),
-    q95 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.95)
-  ) %>%
+    q95 = quantile(hv246_chicken_poultry_duck_total_cat, probs = 0.95)) %>%
   mutate(category = "Chicken/Poultry/Duck")
 
 # Calculate quantiles for hv246_bull_cow_cattle_total_cat
@@ -722,8 +721,7 @@ cattle_quantiles <- hh_level_filter %>%
     q50 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.5),
     q75 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.75),
     q90 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.90),
-    q95 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.95)
-  ) %>%
+    q95 = quantile(hv246_bull_cow_cattle_total_cat, probs = 0.95)) %>%
   mutate(category = "Bull/Cow/Cattle")
 
 # Calculate quantiles for hv246_bull_cow_cattle_total_cat
@@ -734,8 +732,7 @@ goat_sheep_quantiles <- hh_level_filter %>%
     q50 = quantile(hv246_goat_sheep_total_cat, probs = 0.5),
     q75 = quantile(hv246_goat_sheep_total_cat, probs = 0.75),
     q90 = quantile(hv246_goat_sheep_total_cat, probs = 0.90),
-    q95 = quantile(hv246_goat_sheep_total_cat, probs = 0.95)
-  ) %>%
+    q95 = quantile(hv246_goat_sheep_total_cat, probs = 0.95)) %>%
   mutate(category = "Goat/Sheep")
 
 
@@ -747,8 +744,7 @@ horse_donkey_quantiles <- hh_level_filter %>%
     q50 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.5),
     q75 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.75),
     q90 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.90),
-    q95 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.95)
-  ) %>%
+    q95 = quantile(hv246_horse_donkey_camel_total_cat, probs = 0.95)) %>%
   mutate(category = "Horse/Donkey/Camel")
 
 # Combine the tables
