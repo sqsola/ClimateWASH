@@ -759,3 +759,126 @@ bind_rows(chicken_quantiles, cattle_quantiles, goat_sheep_quantiles, horse_donke
   align_text_col(align = "center", header = TRUE) %>% 
   add_footer_lines("*Excludes households that don't have a child under 5 and each category excludes households that don't own an animal in the category")
 
+
+
+
+
+## Combined Surface Water Only ----------------------------------------------------------------
+# Split the dataset into surface water and non-surface water
+
+surface <- rural_final %>% filter(hv201_sourcecat == "Surface water/River")
+nonsurface <- rural_final %>% filter(!hv201_sourcecat == "Surface water/River")
+
+
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode +
+                    (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precipitation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                     (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                   (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode +
+                     (1|name_year/hv001), data = surface, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_e7, model_skt7),
+                             tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
+                                             "**Evap, 7**", "**Skin Temp, 7**")) %>%
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("7 Day Precipitation", "7 Day SRO", "7 Day Evaporation", "7 Day Skin Temp",
+                                                "SES", "Koppen-Geiger Zone", "Person Carrying Water"))))
+
+
+combined_models <- combined_models %>% as_gt()
+
+
+combined_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+
+
+
+
+
+
+
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode +
+                    (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precipitation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                     (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
+                   (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode +
+                     (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
+  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
+                              hv236_person_recode ~ "Person Carrying Water",
+                              
+                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
+
+combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_e7, model_skt7),
+                             tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
+                                             "**Evap, 7**", "**Skin Temp, 7**")) %>%
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("7 Day Precipitation", "7 Day SRO", "7 Day Evaporation", "7 Day Skin Temp",
+                                                "SES", "Koppen-Geiger Zone", "Person Carrying Water"))))
+
+
+combined_models <- combined_models %>% as_gt()
+
+
+combined_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+
