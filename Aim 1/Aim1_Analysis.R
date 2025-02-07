@@ -170,8 +170,6 @@ dual_table %>% flextable() %>%
                align_text_col(align = "center", header = TRUE) %>%
                colformat_num(j = "hv007", big.mark = "")
 
-
-
 # TABLE 1
 
 # Summary Table of water walk times
@@ -206,7 +204,6 @@ reshaped_data <- summary_data %>%
     names_from = "measure",
     values_from = "value")
 
-
 tbl1 <- reshaped_data %>%
   mutate(
     pct = if_else(str_detect(category, "_pct"), num, NA_real_),
@@ -232,12 +229,8 @@ tbl1 <- reshaped_data %>%
   align_text_col(align = "center", header = TRUE) %>% 
   autofit()
   
-  
 save_as_docx(tbl1, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/table1.docx")
   
-
-  
-
 ## Graphs for the Household Summary ---------------------------------------
 
 # This graph uses the dual_graph df that was just created
@@ -398,11 +391,7 @@ tbl4 <- rural_final %>% group_by(kgc_course) %>%
                 align_text_col(align = "center", header = TRUE)%>% 
   autofit()
 
-
 save_as_docx(tbl4, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/table4.docx")
-
-
-
 
 rural_kwallis <- rural_final %>% drop_na(kgc_course)
 
@@ -413,10 +402,6 @@ kruskal_test_result <- kruskal.test(hv204 ~ kgc_course, data = rural_kwallis)
 
 # Display the results
 print(kruskal_test_result)
-
-
-
-
 
 # Weather Correlation ----------------------------------------------------------------
 
@@ -498,24 +483,6 @@ corrplot(cor_rural_weather, p.mat = cor_test$p, method = "square", order = "alph
          diag = TRUE, type = "lower", sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,
          insig = "label_sig", pch.col = "grey1", tl.col = label_colors, tl.srt = 45,
          col=colorRampPalette(c("darkblue", "white", "darkred"))(200))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Person Carrying Water -------------------------------------------------
 
@@ -886,17 +853,11 @@ rural_final %>% ggplot(aes(x = hv204)) + geom_density() + theme_minimal() +
   geom_vline(xintercept = 480, linetype = "dotted", color = "red")+
   geom_vline(xintercept = 540, linetype = "dotted", color = "red")
 
-
-
 rural_final %>% ggplot(aes(x = log(hv204))) + geom_density() + theme_minimal()
 qqnorm(log(rural_final$hv204), pch = 1)
 qqline(log(rural_final$hv204), col = "red", lwd = 3)
 
-
-
-
 theme_gtsummary_journal(journal = "jama")
-
 
 
 ## TP Model ----------------------------------------------------------------
@@ -1007,59 +968,6 @@ sro_models %>%
                      cells_column_labels(),
                      cells_column_spanners()))
 
-## Evaporation Model ----------------------------------------------------------------
-
-model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
-                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
-  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              hv201_improved ~ "Improved Water Source",
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_e14 <- lmer(log(hv204) ~ e_totalminus14 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
-                      (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
-  tbl_regression(label = list(e_totalminus14 ~ "14 Day Evaporation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              hv201_improved ~ "Improved Water Source",
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_e30 <- lmer(log(hv204) ~ e_totalminus30 + hv270 + kgc_course + hv236_person_recode + hv201_improved  +
-                      (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
-  tbl_regression(label = list(e_totalminus30 ~ "30 Day Evaporation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              hv201_improved ~ "Improved Water Source",
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()            
-
-model_e60 <- lmer(log(hv204) ~ e_totalminus60 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
-                      (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
-  tbl_regression(label = list(e_totalminus60 ~ "60 Day Evaporation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              hv201_improved ~ "Improved Water Source",
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-
-evap_models <- tbl_merge(tbls = list(model_e7, model_e14, model_e30, model_e60),
-                        tab_spanner = c("**Evaporation, 7**", "**Evaporation, 14**",
-                                        "**Evaporation, 30**", "**Evaporation, 60**")) %>%
-  modify_table_body(~.x %>%
-                      dplyr::arrange(factor(var_label, levels =
-                                              c("7 Day Evaporation", "14 Day Evaporation", "30 Day Evaporation", "60 Day Evaporation",
-                                                "SES", "Koppen-Geiger Zone", "Improved Water Source", "Person Carrying Water"))))
-
-
-evap_models <- evap_models %>% as_gt()
-
-
-evap_models %>% 
-  tab_style(
-    style = cell_borders(
-      sides = c("left", "right"),
-      color = "gray80",
-      weight = px(2),
-      style = "solid"),
-    locations = list(cells_body(),
-                     cells_column_labels(),
-                     cells_column_spanners()))
 
 ## Skin Temperature Model ----------------------------------------------------------------
 
@@ -1115,8 +1023,9 @@ skt_models %>%
                      cells_column_labels(),
                      cells_column_spanners()))
 
-## Combined ----------------------------------------------------------------
+# Ajusted Models Combined ----------------------------------------------------------------
 
+# Prep
 rural_final <- rural_final %>% mutate(tp_totalminus7_cm = if_else(tp_totalminus7_cm < 0.00000006, 0, tp_totalminus7_cm)) %>% 
                                mutate(tp_totalminus7_cm = if_else(tp_totalminus7_cm > 16.41, 16.41, tp_totalminus7_cm)) %>% 
                                mutate(tp_totalminus7_cm = if_else(tp_totalminus7_cm == 0, 0.0001, tp_totalminus7_cm))
@@ -1134,10 +1043,60 @@ rural_final <- rural_final %>% mutate(sro_totalminus7_cm = if_else(sro_totalminu
 rural_final <- rural_final %>% select(hv204, tp_totalminus7_cm, sro_totalminus7_cm, skt_avgminus7, hv270, kgc_course, 
                                       hv236_person_recode, hv201_improved, name_year, hv001)
 
+
+# Full Models
 model_tp7 <- lmer(log(hv204) ~ tp_totalminus7_cm + hv270 + kgc_course + hv236_person_recode + hv201_improved +
                     (1|name_year/hv001), data = rural_final, REML = FALSE)
 
+saveRDS(model_tp7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/full_model_tp7.rds")
 
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7_cm + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) 
+
+saveRDS(model_sro7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/full_model_sro7.rds")
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year/hv001), data = rural_final, REML = FALSE) 
+
+saveRDS(model_skt7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/full_model_skt7.rds")
+
+# Reduced Models (Name Year Only)
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7_cm + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                    (1|name_year), data = rural_final, REML = FALSE)
+
+saveRDS(model_tp7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/nameyear_model_tp7.rds")
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7_cm + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year), data = rural_final, REML = FALSE) 
+
+saveRDS(model_sro7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/nameyear_model_sro7.rds")
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|name_year), data = rural_final, REML = FALSE) 
+
+saveRDS(model_skt7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/nameyear_model_skt7.rds")
+
+# Reduced Models (Name Year Only)
+
+model_tp7 <- lmer(log(hv204) ~ tp_totalminus7_cm + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                    (1|hv001), data = rural_final, REML = FALSE)
+
+saveRDS(model_tp7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/clustergroup_model_tp7.rds")
+
+model_sro7 <- lmer(log(hv204) ~ sro_totalminus7_cm + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|hv001), data = rural_final, REML = FALSE) 
+
+saveRDS(model_sro7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/clustergroup_model_sro7.rds")
+
+model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
+                     (1|hv001), data = rural_final, REML = FALSE) 
+
+saveRDS(model_skt7, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 1/models/clustergroup_model_skt7.rds")
+
+# Model Tables----
+
+# Total Precipitation
 model_tp7 %>% tbl_regression(label = list(tp_totalminus7_cm ~ "7 Day Precipitation", hv270 ~ "SES",
                                           hv236_person_recode ~ "Person Carrying Water",
                                           hv201_improved ~ "Improved Water Source",
@@ -1153,11 +1112,7 @@ coefs$p.z <- 2 * (1 - pnorm(abs(coefs$t.value)))
 # View results
 coefs
 
-
-
-model_sro7 <- lmer(log(hv204) ~ sro_totalminus7_cm + hv270 + kgc_course + hv236_person_recode + hv201_improved +
-                     (1|name_year/hv001), data = rural_final, REML = FALSE) 
-
+# SRO
 model_sro7 %>% 
   tbl_regression(label = list(sro_totalminus7_cm ~ "7 Day SRO", hv270 ~ "SES",
                               hv236_person_recode ~ "Person Carrying Water",
@@ -1174,16 +1129,13 @@ coefs$p.z <- 2 * (1 - pnorm(abs(coefs$t.value)))
 # View results
 coefs
 
-
-model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode + hv201_improved +
-                     (1|name_year/hv001), data = rural_final, REML = FALSE) %>% 
-  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              hv201_improved ~ "Improved Water Source",
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
+# Skin Temp
 
 # Extract coefficients and exponentiate
+tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
+                            hv236_person_recode ~ "Person Carrying Water",
+                            hv201_improved ~ "Improved Water Source",
+                            kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
 coefs <- data.frame(coef(summary(model_skt7)))
 coefs$exp_estimate <- exp(coefs$Estimate)  # Exponentiated coefficients
 
@@ -1195,6 +1147,9 @@ coefs
 
 
 class(model_skt7)
+
+
+
 
 combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_skt7),
                         tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
@@ -1232,122 +1187,37 @@ model_sro7 %>%
   writexl::write_xlsx(., "model_sro7.xlsx")
 
 
+# Significance Testing for Random Effects ------------------------
+
+# Survey Year Only Random Effects
+## Total Precipitation
+full_model_tp <- readRDS("Aim 1/models/full_model_tp7.rds")
+reduced_model_tp <- readRDS("Aim 1/models/nameyear_model_tp7.rds")
+(anova(reduced_model_tp, full_model_tp))
+
+## SRO
+full_model_sro <- readRDS("Aim 1/models/full_model_sro7.rds")
+reduced_model_sro <- readRDS("Aim 1/models/nameyear_model_sro7.rds")
+(anova(reduced_model_sro, full_model_sro))
+
+## Temperature
+full_model_temp <- readRDS("Aim 1/models/full_model_skt7.rds")
+reduced_model_temp <- readRDS("Aim 1/models/nameyear_model_skt7.rds")
+(anova(reduced_model_temp, full_model_temp))
 
 
-## Combined Surface Water Only ----------------------------------------------------------------
-# Split the dataset into surface water and non-surface water
+# Cluster only Random Effects
+## Total Precipitation
+full_model_tp <- readRDS("Aim 1/models/full_model_tp7.rds")
+reduced_model_tp <- readRDS("Aim 1/models/clustergroup_model_tp7.rds")
+(anova(reduced_model_tp, full_model_tp))
 
-surface <- rural_final %>% filter(hv201_sourcecat == "Surface water/River")
-nonsurface <- rural_final %>% filter(!hv201_sourcecat == "Surface water/River")
+## SRO
+full_model_sro <- readRDS("Aim 1/models/full_model_sro7.rds")
+reduced_model_sro <- readRDS("Aim 1/models/clustergroup_model_sro7.rds")
+(anova(reduced_model_sro, full_model_sro))
 
-
-
-model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode +
-                    (1|name_year/hv001), data = surface, REML = FALSE) %>% 
-  tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precipitation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
-                     (1|name_year/hv001), data = surface, REML = FALSE) %>% 
-  tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
-                   (1|name_year/hv001), data = surface, REML = FALSE) %>% 
-  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode +
-                     (1|name_year/hv001), data = surface, REML = FALSE) %>% 
-  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_e7, model_skt7),
-                             tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
-                                             "**Evap, 7**", "**Skin Temp, 7**")) %>%
-  modify_table_body(~.x %>%
-                      dplyr::arrange(factor(var_label, levels =
-                                              c("7 Day Precipitation", "7 Day SRO", "7 Day Evaporation", "7 Day Skin Temp",
-                                                "SES", "Koppen-Geiger Zone", "Person Carrying Water"))))
-
-
-combined_models <- combined_models %>% as_gt()
-
-
-combined_models %>% 
-  tab_style(
-    style = cell_borders(
-      sides = c("left", "right"),
-      color = "gray80",
-      weight = px(2),
-      style = "solid"),
-    locations = list(cells_body(),
-                     cells_column_labels(),
-                     cells_column_spanners()))
-
-
-
-
-
-
-
-
-
-model_tp7 <- lmer(log(hv204) ~ tp_totalminus7 + hv270 + kgc_course + hv236_person_recode +
-                    (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
-  tbl_regression(label = list(tp_totalminus7 ~ "7 Day Precipitation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_sro7 <- lmer(log(hv204) ~ sro_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
-                     (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
-  tbl_regression(label = list(sro_totalminus7 ~ "7 Day SRO", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_e7 <- lmer(log(hv204) ~ e_totalminus7 + hv270 + kgc_course + hv236_person_recode + 
-                   (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
-  tbl_regression(label = list(e_totalminus7 ~ "7 Day Evaporation", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-model_skt7 <- lmer(log(hv204) ~ skt_avgminus7 + hv270 + kgc_course + hv236_person_recode +
-                     (1|name_year/hv001), data = nonsurface, REML = FALSE) %>% 
-  tbl_regression(label = list(skt_avgminus7 ~ "7 Day Skin Temp", hv270 ~ "SES",
-                              hv236_person_recode ~ "Person Carrying Water",
-                              
-                              kgc_course ~ "Koppen-Geiger Zone"), exponentiate = TRUE) %>% bold_labels()
-
-combined_models <- tbl_merge(tbls = list(model_tp7, model_sro7, model_e7, model_skt7),
-                             tab_spanner = c("**Precipitation, 7**", "**SRO, 7**",
-                                             "**Evap, 7**", "**Skin Temp, 7**")) %>%
-  modify_table_body(~.x %>%
-                      dplyr::arrange(factor(var_label, levels =
-                                              c("7 Day Precipitation", "7 Day SRO", "7 Day Evaporation", "7 Day Skin Temp",
-                                                "SES", "Koppen-Geiger Zone", "Person Carrying Water"))))
-
-
-combined_models <- combined_models %>% as_gt()
-
-
-combined_models %>% 
-  tab_style(
-    style = cell_borders(
-      sides = c("left", "right"),
-      color = "gray80",
-      weight = px(2),
-      style = "solid"),
-    locations = list(cells_body(),
-                     cells_column_labels(),
-                     cells_column_spanners()))
+## Temperature
+full_model_temp <- readRDS("Aim 1/models/full_model_skt7.rds")
+reduced_model_temp <- readRDS("Aim 1/models/clustergroup_model_skt7.rds")
+(anova(reduced_model_temp, full_model_temp))

@@ -29,10 +29,10 @@ if (location == "HPC") {
 }
 
 # Read in the rural datasets
-#data_aim2 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/data_aim2.rds")
+# data_aim2 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/data_aim2.rds")
 # rural         <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/rural.rds")
-descriptive   <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/descriptive.rds")
-rural_hh    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/rural_hh.rds")
+# descriptive   <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/descriptive.rds")
+# rural_hh    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/rural_hh.rds")
 under5_animal <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/under5_animal.rds")
 #under5_dia    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/under5_dia.rds")
 
@@ -449,13 +449,7 @@ table2 <- descriptive %>%
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
 
-
-round(mean(descriptive$animal_total, na.rm = TRUE), 2)
-
-descriptive$animal_total
-
 save_as_docx(table2, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/aim2_table2.docx")
-
 
 
 # Summarise the diarrhea by number of different animals exposed to
@@ -2061,136 +2055,312 @@ combined_models <- combined_models %>%
 combined_models
 
 
-# Adjusted Models ---------------------------------------------------------
+# Adjusted Models 2 Random Intercepts ---------------------------------------------------------
 
-under5_animal_model <- under5_animal %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
-                                                bull_cow_cattle_present, kgc_course, horse_donkey_present,
-                                                hv270, epe_2228_95, b8, name_year, hv001)
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
 
-model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + hv270 + epe_2228_95 + b8 +
-                       (1|name_year/hv001), data = under5_animal_model, family = binomial,
+under5_animal_model <- under5_animal %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
+
+under5_animal_model <- under5_animal_model %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
+
+under5_animal_model$unique_hh <- as.factor(under5_animal_model$unique_hh)
+under5_animal_model$name_year <- as.factor(under5_animal_model$name_year)
+
+under5_animal_model <- under5_animal_model %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                      bull_cow_cattle_present, kgc_course, horse_donkey_present,
+                                                      hv270, epe_2228_95, b8, name_year, hv001, unique_hh)
+
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                       data = under5_animal_model, family = binomial,
                        control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
-table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry", kgc_course ~ "Koppen-Geiger Zone",
-                                                               epe_2228_95 ~ "EPE, 22-28 Days", hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                                               exponentiate = TRUE) %>% bold_labels()
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_chicken.rds")
 
-saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/model_chicken.rds")
-
-model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + hv270 + epe_2228_95 + b8 +
-                       (1|name_year/hv001), data = under5_animal_model, family = binomial,
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = binomial,
                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
-table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle", kgc_course ~ "Koppen-Geiger Zone",
-                                                         epe_2228_95 ~ "EPE, 22-28 Days", hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                            exponentiate = TRUE) %>% bold_labels()
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_bull.rds")
 
-saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/model_bull.rds")
-
-model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + kgc_course + hv270 + epe_2228_95 + b8 +
-                       (1|name_year/hv001), data = under5_animal_model, family = binomial,
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = binomial,
                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
-table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep", kgc_course ~ "Koppen-Geiger Zone",
-                                                         epe_2228_95 ~ "EPE, 22-28 Days", hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                            exponentiate = TRUE) %>% bold_labels()
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_goat.rds")
 
-saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/model_goat.rds")
-
-
-model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + kgc_course + hv270 + epe_2228_95 + b8 +
-                        (1|name_year/hv001), data = under5_animal_model, family = binomial,
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                     data = under5_animal_model, family = binomial,
                      control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
-#model_horse <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/model_horse.rds")
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_horse.rds")
 
-table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey", kgc_course ~ "Koppen-Geiger Zone",
-                                                           epe_2228_95 ~ "EPE, 22-28 Days", hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                              exponentiate = TRUE) %>% bold_labels()
-
-saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/model_horse.rds")
-
-
-model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228_95 +  b8 +
-                     (1|name_year/hv001), data = under5_animal_model, family = binomial,
+model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228_95 +  b8 + (1|name_year/unique_hh), 
+                   data = under5_animal_model, family = binomial,
                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
-table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig", kgc_course ~ "Koppen-Geiger Zone",
-                                                       epe_2228_95 ~ "EPE, 22-28 Days", hv270 ~ "SES Group", b8 ~ "Age of Child (Years)"),
-                                          exponentiate = TRUE) %>% bold_labels()
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_pig.rds")
 
-saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/model_pig.rds")
+# Adjusted Models uniquehh Random Intercepts ---------------------------------------------------------
 
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
 
+under5_animal_model <- under5_animal %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
 
-combined_models <- tbl_merge(tbls = list(table_chicken, table_bull, table_goat, table_horse, table_pig),
-                             tab_spanner = c("**Chicken/Duck/Poultry**", "**Bull/Cow/Cattle**",
-                                             "**Goat/Sheep**", "**Horse/Donkey**",
-                                             "**Pig**")) %>%
-  
-  # combined_models <- combined_models %>%
-  modify_table_body(~.x %>%
-                      dplyr::arrange(factor(var_label, levels =
-                                              c("Chicken/Duck/Poultry", "Bull/Cow/Cattle",
-                                                "Goat/Sheep", "Horse/Donkey",
-                                                "Pig", "Koppen-Geiger Zone", "SES Group",
-                                                "EPE, 22-28 Days", "Age of Child (Years)"))))
+under5_animal_model <- under5_animal_model %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
 
+under5_animal_model$unique_hh <- as.factor(under5_animal_model$unique_hh)
+under5_animal_model$name_year <- as.factor(under5_animal_model$name_year)
 
-combined_models <- combined_models %>% as_gt()
+under5_animal_model <- under5_animal_model %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                      bull_cow_cattle_present, kgc_course, horse_donkey_present,
+                                                      hv270, epe_2228_95, b8, name_year, hv001, unique_hh)
 
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|unique_hh), 
+                       data = under5_animal_model, family = binomial,
+                       control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
-combined_models <- combined_models %>% 
-  tab_style(
-    style = cell_borders(
-      sides = c("left", "right"),
-      color = "gray80",
-      weight = px(2),
-      style = "solid"),
-    locations = list(cells_body(),
-                     cells_column_labels(),
-                     cells_column_spanners()))
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/uniquehh_model_chicken.rds")
 
-combined_models
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|unique_hh), 
+                    data = under5_animal_model, family = binomial,
+                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
-save_as_docx(combined_models, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/combined_models.docx")
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/uniquehh_model_bull.rds")
+
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|unique_hh), 
+                    data = under5_animal_model, family = binomial,
+                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/uniquehh_model_goat.rds")
+
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|unique_hh), 
+                     data = under5_animal_model, family = binomial,
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/uniquehh_model_horse.rds")
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228_95 +  b8 + (1|unique_hh), 
+                   data = under5_animal_model, family = binomial,
+                   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/uniquehh_model_pig.rds")
+
+# Adjusted Models name_year random intercept ---------------------------------------------------------
+
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
+
+under5_animal_model <- under5_animal %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
+
+under5_animal_model <- under5_animal_model %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
+
+under5_animal_model$unique_hh <- as.factor(under5_animal_model$unique_hh)
+under5_animal_model$name_year <- as.factor(under5_animal_model$name_year)
+
+under5_animal_model <- under5_animal_model %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                      bull_cow_cattle_present, kgc_course, horse_donkey_present,
+                                                      hv270, epe_2228_95, b8, name_year, hv001, unique_hh)
+
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year), 
+                       data = under5_animal_model, family = binomial,
+                       control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nameyear_model_chicken.rds")
+
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year), 
+                    data = under5_animal_model, family = binomial,
+                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nameyear_model_bull.rds")
+
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year), 
+                    data = under5_animal_model, family = binomial,
+                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nameyear_model_goat.rds")
+
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year), 
+                     data = under5_animal_model, family = binomial,
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nameyear_model_horse.rds")
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228_95 +  b8 + (1|name_year), 
+                   data = under5_animal_model, family = binomial,
+                   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nameyear_model_pig.rds")
+
+# Adjusted Models No Mixed Effects ---------------------------------------------------------
+
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
+
+under5_animal_model <- under5_animal %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
+
+under5_animal_model <- under5_animal_model %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
+
+under5_animal_model$unique_hh <- as.factor(under5_animal_model$unique_hh)
+under5_animal_model$name_year <- as.factor(under5_animal_model$name_year)
+
+under5_animal_model <- under5_animal_model %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                      bull_cow_cattle_present, kgc_course, horse_donkey_present,
+                                                      hv270, epe_2228_95, b8, name_year, hv001, unique_hh)
+
+model_chicken <- glm(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + hv270 + epe_2228_95 + b8, 
+                       data = under5_animal_model, family = binomial)
+
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nomixed_model_chicken.rds")
+
+model_bull <- glm(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + hv270 + epe_2228_95 + b8, 
+                    data = under5_animal_model, family = binomial)
+
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nomixed_model_bull.rds")
+
+model_goat <- glm(diarrhea_dichot ~ goat_sheep_present + kgc_course + hv270 + epe_2228_95 + b8, 
+                    data = under5_animal_model, family = binomial)
+
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nomixed_model_goat.rds")
+
+model_horse <- glm(diarrhea_dichot ~ horse_donkey_present + kgc_course + hv270 + epe_2228_95 + b8, 
+                     data = under5_animal_model, family = binomial)
+
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nomixed_model_horse.rds")
+
+model_pig <- glm(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228_95 + b8, 
+                   data = under5_animal_model, family = binomial)
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nomixed_model_pig.rds")
+
+# Adjusted Model Random Slope and Intercept ------------------------------
+
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
+
+under5_animal_model <- under5_animal %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
+
+under5_animal_model <- under5_animal_model %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
+
+under5_animal_model$unique_hh <- as.factor(under5_animal_model$unique_hh)
+under5_animal_model$name_year <- as.factor(under5_animal_model$name_year)
+
+under5_animal_model <- under5_animal_model %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                      bull_cow_cattle_present, kgc_course, horse_donkey_present,
+                                                      hv270, epe_2228_95, b8, name_year, hv001, unique_hh)
+
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + hv270 + epe_2228_95 + b8 + 
+                         (1 + chicken_poultry_duck_present | name_year/unique_hh), 
+                       data = under5_animal_model, family = binomial,
+                       control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_chicken.rds")
+
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + hv270 + epe_2228_95 + b8 + 
+                      (1 + bull_cow_cattle_present | name_year/unique_hh), 
+                    data = under5_animal_model, family = binomial,
+                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_bull.rds")
+
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + kgc_course + hv270 + epe_2228_95 + b8 + 
+                      (1 + goat_sheep_present | name_year/unique_hh), 
+                    data = under5_animal_model, family = binomial,
+                    control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_goat.rds")
+
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + kgc_course + hv270 + epe_2228_95 + b8 + 
+                       (1 + horse_donkey_present | name_year/unique_hh), 
+                     data = under5_animal_model, family = binomial,
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_horse.rds")
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228_95 +  b8 + 
+                     (1 + pig_present |name_year/unique_hh), 
+                   data = under5_animal_model, family = binomial,
+                   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_pig.rds")
 
 
 # Model Tables ------------------------------------------------------------
 
-model_bull <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_bull_noepe.rds")
-model_chicken <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_chicken_noepe.rds")
-model_goat <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_goat_noepe.rds")
-model_horse <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_horse_noepe.rds")
-model_pig <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/model_pig_noepe.rds")
+model_chicken <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_chicken.rds")
+model_bull <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_bull.rds")
+model_goat <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_goat.rds")
+model_horse <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_horse.rds")
+model_pig <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_pig.rds")
 
 table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry", 
-                                                               region_combined ~ "Region",
-                                                               hv270 ~ "SES Group", 
+                                                               kgc_course ~ "Koppen-Geiger Zone",
+                                                               hv270 ~ "SES Group",
+                                                               epe_2228_95 ~ "EPE 22-28 Days",
                                                                b8 ~ "Age of Child (Years)"),
                                                   exponentiate = TRUE) %>% bold_labels()
 
 table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle", 
-                                                         region_combined ~ "Region",
-                                                         hv270 ~ "SES Group", 
+                                                         kgc_course ~ "Koppen-Geiger Zone",
+                                                         hv270 ~ "SES Group",
+                                                         epe_2228_95 ~ "EPE 22-28 Days",
                                                          b8 ~ "Age of Child (Years)"),
                                             exponentiate = TRUE) %>% bold_labels()
 
 table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep", 
-                                                         region_combined ~ "Region",
-                                                         hv270 ~ "SES Group", 
+                                                         kgc_course ~ "Koppen-Geiger Zone",
+                                                         hv270 ~ "SES Group",
+                                                         epe_2228_95 ~ "EPE 22-28 Days",
                                                          b8 ~ "Age of Child (Years)"),
                                             exponentiate = TRUE) %>% bold_labels()
 
 table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey", 
-                                                           region_combined ~ "Region",
-                                                           hv270 ~ "SES Group", 
+                                                           kgc_course ~ "Koppen-Geiger Zone",
+                                                           hv270 ~ "SES Group",
+                                                           epe_2228_95 ~ "EPE 22-28 Days",
                                                            b8 ~ "Age of Child (Years)"),
                                               exponentiate = TRUE) %>% bold_labels()
 
 table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig", 
-                                                       region_combined ~ "Region",
-                                                       hv270 ~ "SES Group", 
+                                                       kgc_course ~ "Koppen-Geiger Zone",
+                                                       hv270 ~ "SES Group",
+                                                       epe_2228_95 ~ "EPE 22-28 Days",
                                                        b8 ~ "Age of Child (Years)"),
                                           exponentiate = TRUE) %>% bold_labels()
 
@@ -2219,3 +2389,57 @@ combined_models <- combined_models %>%
                      cells_column_spanners()))
 
 combined_models
+
+# Significance Testing for Random Effects ------------------------
+
+# Survey Year Only Random Effects
+## Chicken
+full_model_chicken <- readRDS("Aim 3/models/hhgroup_model_chicken.rds")
+reduced_model_chicken <- readRDS("Aim 3/models/nameyear_model_chicken.rds")
+(anova(reduced_model_chicken, full_model_chicken))
+
+## Bull
+full_model_bull <- readRDS("Aim 3/models/hhgroup_model_bull.rds")
+reduced_model_bull <- readRDS("Aim 3/models/nameyear_model_bull.rds")
+(anova(reduced_model_bull, full_model_bull))
+
+## Goat
+full_model_goat <- readRDS("Aim 3/models/hhgroup_model_goat.rds")
+reduced_model_goat <- readRDS("Aim 3/models/nameyear_model_goat.rds")
+(anova(reduced_model_goat, full_model_goat))
+
+## Horse
+full_model_horse <- readRDS("Aim 3/models/hhgroup_model_horse.rds")
+reduced_model_horse <- readRDS("Aim 3/models/nameyear_model_horse.rds")
+(anova(reduced_model_horse, full_model_horse))
+
+## Pig
+full_model_pig <- readRDS("Aim 3/models/hhgroup_model_pig.rds")
+reduced_model_pig <- readRDS("Aim 3/models/nameyear_model_pig.rds")
+(anova(reduced_model_pig, full_model_pig))
+
+# HH only Random Effects
+## Chicken
+full_model_chicken <- readRDS("Aim 3/models/hhgroup_model_chicken.rds")
+reduced_model_chicken <- readRDS("Aim 3/models/uniquehh_model_chicken.rds")
+(anova(reduced_model_chicken, full_model_chicken))
+
+## Bull
+full_model_bull <- readRDS("Aim 3/models/hhgroup_model_bull.rds")
+reduced_model_bull <- readRDS("Aim 3/models/uniquehh_model_bull.rds")
+(anova(reduced_model_bull, full_model_bull))
+
+## Goat
+full_model_goat <- readRDS("Aim 3/models/hhgroup_model_goat.rds")
+reduced_model_goat <- readRDS("Aim 3/models/uniquehh_model_goat.rds")
+(anova(reduced_model_goat, full_model_goat))
+
+## Horse
+full_model_horse <- readRDS("Aim 3/models/hhgroup_model_horse.rds")
+reduced_model_horse <- readRDS("Aim 3/models/uniquehh_model_horse.rds")
+(anova(reduced_model_horse, full_model_horse))
+
+## Pig
+full_model_pig <- readRDS("Aim 3/models/hhgroup_model_pig.rds")
+reduced_model_pig <- readRDS("Aim 3/models/uniquehh_model_pig.rds")
+(anova(reduced_model_pig, full_model_pig))
