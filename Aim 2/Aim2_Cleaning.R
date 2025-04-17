@@ -285,7 +285,6 @@ data_aim2 <- data_aim2 %>%
                mutate(hv246 = ifelse(name_year == "UG_06" & is.na(hv246) & animal_total != 0, 1, hv246))
 
 
-
 # Codebook Animals --------------------------------------------------------
 
 # Check which countries have animals
@@ -404,30 +403,43 @@ codebook$HV246_animal_recode <- paste0("hv246_", codebook$HV246_animal_recode)
 # save the codebook as a .rds file
 saveRDS(codebook, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/codebook.rds")
 
+
+# Head of Household Education ---------------------------------------------
+
+# data_aim2 <- data_aim2 %>%
+#   rowwise() %>%
+#   mutate(head_educ = {
+#     # Find indices where hv101 equals 1
+#     idx <- which(c_across(starts_with("hv101_")) == 1)
+#     # If any found, get the corresponding hv106 value from the first match; otherwise, NA
+#     if (length(idx) > 0) c_across(starts_with("hv106_"))[idx[1]] else NA_integer_
+#   }) %>%
+#   ungroup()
+
 # Clean Unneeded Columns --------------------------------------------------
 
 data_aim2 <- data_aim2 %>%  
-  select(-matches("^(awf|ml|d4|fg|fy|g1|m[1-8]|s4|sdv|si|v[1-8])"))
+  select(-matches("^(awf|ml|d4|fg|fy|g1|m[1-8]|s4|sdv|si|v[2-8])"))
 
 # Output the datasets -----------------------------------------------------
 
 # Save the full dataset
 saveRDS(data_aim2, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/data_aim2.rds")
 
-## Save the urban dataset -------------------------------------------------
-urban <- data_aim2 %>% filter(URBAN_RURA == "U")
-saveRDS(urban, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/urban.rds")
-
-# Household Level 
-urban_hh <- urban %>%
-            group_by(name_year) %>%
-            distinct(hhid, .keep_all = TRUE)
-
-saveRDS(urban_hh, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/urban_hh.rds")
-
-# Remove urban dataset
-rm(urban)
-gc()
+# ## Save the urban dataset -------------------------------------------------
+# urban <- data_aim2 %>% filter(URBAN_RURA == "U")
+# saveRDS(urban, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/urban.rds")
+# 
+# # Household Level 
+# urban_hh <- urban %>%
+#             group_by(name_year) %>%
+#             distinct(hhid, .keep_all = TRUE)
+# 
+# saveRDS(urban_hh, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/urban_hh.rds")
+# 
+# # Remove urban dataset
+# rm(urban)
+# gc()
 
 ## Save the rural dataset -------------------------------------------------
 rural <- data_aim2 %>% filter(URBAN_RURA == "R")

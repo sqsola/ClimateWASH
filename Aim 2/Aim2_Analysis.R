@@ -11,6 +11,7 @@ library(lme4)
 library(gtsummary)
 library(sf)
 library(gt)
+library(splines)
 library(ggVennDiagram)
 library(tidyverse)
 
@@ -30,10 +31,11 @@ if (location == "HPC") {
 
 # Read in the rural datasets
 #data_aim2 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/data_aim2.rds")
-# rural         <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural.rds")
-# descriptive   <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/descriptive.rds")
+#rural         <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural.rds")
+descriptive   <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/descriptive.rds")
+animals <- descriptive %>% filter(hv007 >= 2005)
 # rural_hh    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/rural_hh.rds")
-under5_animal <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_animal.rds")
+#under5_animal <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_animal.rds")
 #under5_dia    <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/under5_dia.rds")
 
 # Mapping ------------------------------------------------------
@@ -84,7 +86,7 @@ ggplot() +
 
 
 # Plot the KGZ households
-ggplot() + 
+ggplot() +
   geom_sf(data = shapefile, fill = "white") +
   geom_sf(data = points, aes(color = kgc_course), size = 0.4, alpha = 0.15) +
   scale_color_manual(
@@ -285,7 +287,7 @@ rural_hh %>% filter(!animal_singleonly %in% c("none", "other")) %>%
              bg(i = ~ horse_donkey_present == "No", j = ~ horse_donkey_present, bg = "#f58e8e")
 
 ## Venn Diagram 5 way -----------------------------------------------------
-rural_2 <- descriptive %>%
+rural_2 <- animals %>%
   # group_by(name_year) %>%
   # distinct(hhid, .keep_all = TRUE) %>% 
   # ungroup() %>% 
@@ -301,9 +303,9 @@ my_list <- list("Bull/Cow/Cattle" = which(rural_2$bull_cow_cattle_present == 1),
                 
 ggVennDiagram(my_list, label_alpha = 0, set_color = c("blue","darkred","darkgreen","black", "darkorange"), set_size = 6,
               label_percent_digit = 1) + 
-  scale_fill_distiller(palette = "Reds", direction = 1) + 
+  scale_fill_distiller(palette = "PuBuGn", direction = 1) + 
   scale_x_continuous(expand = expansion(mult = .2))+ 
-  guides(fill = guide_legend(title = "Household Count")) +
+  guides(fill = guide_legend(title = "Number of Children")) +
   theme(legend.position = "bottom")
 
 # Table for the Venn diagram
@@ -401,7 +403,7 @@ rural_hh %>% filter(!animal_singleonly %in% c("none", "other")) %>%
 
 # Summarise the diarrhea by any animals -----------------------------------
 
-table1 <- descriptive %>% 
+table1 <- animals %>% 
   group_by(name_year, hhid) %>% 
   mutate(first_animal_total = if_else(row_number()==1, animal_total, 0 )) %>%
   group_by(hv246) %>% 
@@ -463,7 +465,7 @@ ggplot(data = rural, mapping = aes(
 
 
 # Summarise the diarrhea by total animals
-table2 <- descriptive %>% 
+table2 <- animals %>% 
   mutate(animal_total_cut = if_else(is.na(animal_total_cut), "Unknown Animal", as.character(animal_total_cut))) %>%
   group_by(animal_total_cut) %>% 
   summarise(n = n(),
@@ -484,10 +486,55 @@ table2 <- descriptive %>%
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
 
+# Wilcoxon Rank Sum Test
+subset <- descriptive %>% select(animal_total, diarrhea_dichot)
+class(subset$diarrhea_dichot)
+subset %>% tabyl(diarrhea_dichot)
+class(subset$animal_total)
+result <- wilcox.test(animal_total ~ diarrhea_dichot, data = subset)
+print(result)
+summary(result)
+
+# Separate the groups
+group1 <- subset$animal_total[subset$diarrhea_dichot == 0]
+group2 <- subset$animal_total[subset$diarrhea_dichot == 1]
+
+# Get sample sizes
+n1 <- length(group1)
+n2 <- length(group2)
+
+# Compute ranks for the combined subset
+all_ranks <- rank(subset$animal_total)
+
+# Compute the rank sum for each group
+R1 <- sum(all_ranks[subset$diarrhea_dichot == 0])
+R2 <- sum(all_ranks[subset$diarrhea_dichot == 1])
+
+# Compute U values
+U1 <- R1 - (n1 * (n1 + 1)) / 2
+U2 <- R2 - (n2 * (n2 + 1)) / 2
+
+# Alternatively, note that U1 + U2 should equal n1 * n2
+U2_alternative <- n1 * n2 - U1
+
+# Print the results
+cat("Group 1: n =", n1, "Rank Sum =", R1, "U =", U1, "\n")
+cat("Group 2: n =", n2, "Rank Sum =", R2, "U =", U2, "\n")
+
+
+model <- glm(diarrhea_dichot ~ animal_total, data = subset)
+
+summary(model)
+
+
+
+
+
+
 save_as_docx(table2, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/aim2_table2.docx")
 
 # Summarise the diarrhea by total animals and SES
-descriptive %>% 
+animals %>% 
   mutate(animal_total_cut = if_else(is.na(animal_total_cut), "Unknown Animal", as.character(animal_total_cut))) %>%
   group_by(animal_total_cut) %>% 
   summarise(n = n(),
@@ -506,6 +553,25 @@ descriptive %>%
   align_text_col(align = "center", header = TRUE)
 
 descriptive %>% tabyl(animal_total_cut, hv270)
+
+
+
+animals%>% 
+  group_by(hv246) %>% 
+  summarise(n = n(),
+            n_under5 = sum(b8 <= 4, na.rm = TRUE),
+            avg_num_animal = round(mean(animal_total, na.rm = TRUE), 2),
+            num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
+            percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
+            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
+  adorn_totals("row",,,,c(n, n_under5, num_diarrhea)) %>% 
+  qflextable() %>% 
+  set_header_labels(animal_total_cut = "Number of Animals in Household", n = "Number of People", n_under5 = "Children Under 5",
+                    avg_num_animal = "Avg Number of Animals", num_diarrhea = "Children Under 5 with Diarrhea",
+                    percent_diarrhea = "Diarrhea Prevalence")%>% 
+  theme_zebra() %>% theme_box() %>% 
+  align_nottext_col(align = "center", header = TRUE) %>%
+  align_text_col(align = "center", header = TRUE)
 
 
 
@@ -533,6 +599,7 @@ table3 <- descriptive %>%
   summarise(n = n(),
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
+            ses = round(mean(hv270, na.rm = TRUE), 2),
             percent_diarrhea = round((num_diarrhea / n_under5), 4)*100) %>%
   mutate(animal_singleonly = recode(animal_singleonly, `none` = "No Animals", `chicken/poultry/duck only` = "Chicken/Poultry/Duck Only", 
                                     `goat/sheep only` = "Goat/Sheep Only", `bull/cow/cattle only` = "Bull/Cow/Cattle Only",
@@ -551,6 +618,27 @@ table3 <- descriptive %>%
   theme_zebra() %>% theme_box() %>% 
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
+
+
+descriptive %>% tabyl(animal_singleonly)
+
+subset <- descriptive %>% select(diarrhea_dichot, animal_singleonly, hv270) %>% filter(animal_singleonly != "none")
+
+subset1 <- subset %>% select(-hv270)
+
+# Create a contingency table
+table_data <- table(subset1$diarrhea_dichot, subset1$animal_singleonly)
+
+# Perform the chi-square test of independence
+chi_sq_result <- chisq.test(table_data)
+
+# Print the test results
+print(chi_sq_result)
+
+subset2 <- subset %>% select(-diarrhea_dichot)
+kruskal_test_result <- kruskal.test(hv270 ~ animal_singleonly, data = subset)
+print(kruskal_test_result)
+
 
 save_as_docx(table3, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/aim2_table3.docx")
 
@@ -627,18 +715,30 @@ rural %>%
   align_text_col(align = "center", header = TRUE)
 
 
-table4 <- descriptive %>% 
+subset <- descriptive %>% select(hv270, diarrhea_dichot) %>% filter(!is.na(hv270))
+
+subset %>% tabyl(hv270)
+
+subset$hv270 <- as.factor(subset$hv270)
+
+# Create a contingency table (rows: animal_total_cut, columns: diarrhea_dichot)
+ctab <- table(subset$hv270, subset$diarrhea_dichot)
+
+# Perform the Cochran-Armitage test
+result <- DescTools::CochranArmitageTest(ctab)
+print(result)
+
+animals %>% 
   group_by(hv270) %>% 
-  summarise(n = n(),
-            n_under5 = sum(b8 <= 4, na.rm = TRUE),
+  summarise(n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4)*100) %>% 
   mutate(hv270 = recode_factor(hv270, "1" = "Poorest", "2" = "Poor", 
                                     "3" = "Middle", 
                                "4" = "Rich", "5" = "Richest", .missing = "Unknown")) %>% 
-  adorn_totals("row",,,,c(n, n_under5, num_diarrhea)) %>%
+  adorn_totals("row",,,,c(n_under5, num_diarrhea)) %>%
   qflextable() %>% 
-  set_header_labels(hv270 = "SES", n = "Number of People", 
+  set_header_labels(hv270 = "SES", 
                     n_under5 = "Children Under 5", num_diarrhea = "Children Under 5 with Diarrhea",
                     percent_diarrhea = "Diarrhea Prevalence")%>%
   add_header_lines(values = c("Diarrhea Prevalence by SES Group")) %>% 
@@ -656,9 +756,7 @@ overall <- descriptive %>%
   summarise(n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(animal_total <= 500)
+            ses = round(mean(hv270, na.rm = TRUE), 2))
 
 # Perform Pearson correlation test
 correlation_test <- cor.test(overall$animal_total, overall$ses, method = "pearson")
@@ -670,7 +768,7 @@ p_value <- correlation_test$p.value
 # Create the plot with correlation annotation
 ggplot(data = overall, aes(y = ses, x = animal_total)) + 
   geom_point() +
-  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  geom_smooth(method = "lm", formula = y ~ ns(x, df = 5), color = "red", fill = "gray") +
   labs(x = "Number of Total Animals Owned",
        y = "SES Level") +
   scale_x_continuous(expand = c(0, 0)) +
@@ -688,9 +786,7 @@ chicken <- descriptive %>%
   summarise(n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_chicken_poultry_duck_total_cat <= 100)
+            ses = round(mean(hv270, na.rm = TRUE), 2)) 
 
 # Perform Pearson correlation test
 correlation_test <- cor.test(chicken$hv246_chicken_poultry_duck_total_cat, chicken$ses, method = "pearson")
@@ -702,17 +798,21 @@ p_value <- correlation_test$p.value
 # Create the plot with correlation annotation
 ggplot(data = chicken, aes(y = ses, x = hv246_chicken_poultry_duck_total_cat)) + 
   geom_point() +
-  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  geom_smooth(method = "lm", formula = y ~ ns(x, df = 5), color = "red", fill = "gray") +
   labs(x = "Number of Chickens/Poultry/Duck",
        y = "SES Level") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme_bw() +
+  theme(axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.x = element_text(size = 19),
+        axis.title.y = element_text(size = 19)) +
   annotate("label", x = min(chicken$hv246_chicken_poultry_duck_total_cat) + 5, 
            y = max(chicken$ses) - 0.3, 
            label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
                           "\nP-value: ", format(p_value, digits = 2)), 
-           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+           hjust = 0, vjust = 1, size = 10, fill = "gray", color = "black")
 
 # goat / sheep
 goat <- descriptive %>% 
@@ -721,9 +821,7 @@ goat <- descriptive %>%
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_goat_sheep_total_cat <= 100)
+            ses = round(mean(hv270, na.rm = TRUE), 2))
 
 # Perform Pearson correlation test
 correlation_test <- cor.test(goat$hv246_goat_sheep_total_cat, goat$ses, method = "pearson")
@@ -735,17 +833,21 @@ p_value <- correlation_test$p.value
 # Create the plot with correlation annotation
 ggplot(data = goat, aes(y = ses, x = hv246_goat_sheep_total_cat)) + 
   geom_point() +
-  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  geom_smooth(method = "lm", formula = y ~ ns(x, df = 5), color = "red", fill = "gray") +
   labs(x = "Number of Goat and Sheep",
        y = "SES Level") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme_bw() +
+  theme(axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.x = element_text(size = 19),
+        axis.title.y = element_text(size = 19)) +
   annotate("label", x = min(goat$hv246_goat_sheep_total_cat) + 5, 
            y = max(goat$ses) - 0.3, 
            label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
                           "\nP-value: ", format(p_value, digits = 2)), 
-           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+           hjust = 0, vjust = 1, size = 10, fill = "gray", color = "black")
 
 
 # cattle/cow/bull
@@ -755,9 +857,7 @@ bull <- descriptive %>%
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_bull_cow_cattle_total_cat <= 100)
+            ses = round(mean(hv270, na.rm = TRUE), 2))
 
 # Perform Pearson correlation test
 correlation_test <- cor.test(bull$hv246_bull_cow_cattle_total_cat, bull$ses, method = "pearson")
@@ -769,17 +869,21 @@ p_value <- correlation_test$p.value
 # Create the plot with correlation annotation
 ggplot(data = bull, aes(y = ses, x = hv246_bull_cow_cattle_total_cat)) + 
   geom_point() +
-  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  geom_smooth(method = "lm", formula = y ~ ns(x, df = 5), color = "red", fill = "gray") +
   labs(x = "Number of Bulls and Cows",
        y = "SES Level") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme_bw() +
+  theme(axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.x = element_text(size = 19),
+        axis.title.y = element_text(size = 19)) +
   annotate("label", x = min(bull$hv246_bull_cow_cattle_total_cat) + 5, 
            y = max(bull$ses) - 0.3, 
            label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
                           "\nP-value: ", format(p_value, digits = 2)), 
-           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+           hjust = 0, vjust = 1, size = 10, fill = "gray", color = "black")
 
 
 # horse/donkey
@@ -789,9 +893,7 @@ horse <- descriptive %>%
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_horse_donkey_total_cat <= 25)
+            ses = round(mean(hv270, na.rm = TRUE), 2))
 
 # Perform Pearson correlation test
 correlation_test <- cor.test(horse$hv246_horse_donkey_total_cat, horse$ses, method = "pearson")
@@ -803,17 +905,21 @@ p_value <- correlation_test$p.value
 # Create the plot with correlation annotation
 ggplot(data = horse, aes(y = ses, x = hv246_horse_donkey_total_cat)) + 
   geom_point() +
-  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  geom_smooth(method = "lm", formula = y ~ ns(x, df = 5), color = "red", fill = "gray") +
   labs(x = "Number of Horses and Donkeys",
        y = "SES Level") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme_bw() +
+  theme(axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.x = element_text(size = 19),
+        axis.title.y = element_text(size = 19)) +
   annotate("label", x = min(horse$hv246_horse_donkey_total_cat) + 5, 
            y = max(horse$ses) - 0.3, 
            label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
                           "\nP-value: ", format(p_value, digits = 2)), 
-           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+           hjust = 0, vjust = 1, size = 10, fill = "gray", color = "black")
 
 # pig
 pig <- descriptive %>% 
@@ -822,9 +928,7 @@ pig <- descriptive %>%
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_pig_total_cat <= 30)
+            ses = round(mean(hv270, na.rm = TRUE), 2))
 
 # Perform Pearson correlation test
 correlation_test <- cor.test(pig$hv246_pig_total_cat, pig$ses, method = "pearson")
@@ -836,17 +940,21 @@ p_value <- correlation_test$p.value
 # Create the plot with correlation annotation
 ggplot(data = pig, aes(y = ses, x = hv246_pig_total_cat)) + 
   geom_point() +
-  geom_smooth(method = "lm", color = "red", fill = "gray") +
+  geom_smooth(method = "lm", formula = y ~ ns(x, df = 5), color = "red", fill = "gray") +
   labs(x = "Number of Pigs",
        y = "SES Level") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme_bw() +
+  theme(axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.x = element_text(size = 19),
+        axis.title.y = element_text(size = 19)) +
   annotate("label", x = min(pig$hv246_pig_total_cat) + 3, 
            y = max(pig$ses) - 0.25, 
            label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
                           "\nP-value: ", format(p_value, digits = 2)), 
-           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+           hjust = 0, vjust = 1, size = 10, fill = "gray", color = "black")
 
 
 # other
@@ -856,9 +964,7 @@ other <- descriptive %>%
             n_under5 = sum(b8 <= 4, na.rm = TRUE),
             num_diarrhea = sum(diarrhea_dichot, na.rm = TRUE),
             percent_diarrhea = round((num_diarrhea / n_under5), 4) * 100,
-            ses = round(mean(hv270, na.rm = TRUE), 2)) %>%
-  filter(!num_diarrhea == 0) %>% 
-  filter(hv246_other_total_cat <= 50)
+            ses = round(mean(hv270, na.rm = TRUE), 2)) 
 
 # Perform Pearson correlation test
 correlation_test <- cor.test(other$hv246_other_total_cat, other$ses, method = "pearson")
@@ -870,17 +976,80 @@ p_value <- correlation_test$p.value
 # Create the plot with correlation annotation
 ggplot(data = other, aes(y = ses, x = hv246_other_total_cat)) + 
   geom_point() +
-  geom_smooth(method = "lm", color = "red", fill = "gray") +
-  labs(x = "Number of Pigs",
+  geom_smooth(method = "lm", formula = y ~ ns(x, df = 5), color = "red", fill = "gray") +
+  labs(x = "Number of Other Animals",
        y = "SES Level") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme_bw() +
+  theme(axis.text.x = element_text(size = 19),
+        axis.text.y = element_text(size = 19),
+        axis.title.x = element_text(size = 19),
+        axis.title.y = element_text(size = 19)) +
   annotate("label", x = min(other$hv246_other_total_cat) + 3, 
            y = max(other$ses) - 0.25, 
            label = paste0("Pearson's r: ", round(correlation_coefficient, 2), 
                           "\nP-value: ", format(p_value, digits = 2)), 
-           hjust = 0, vjust = 1, size = 6, fill = "gray", color = "black")
+           hjust = 0, vjust = 1, size = 10, fill = "gray", color = "black")
+
+# Head of Households Education -------------------------------------------
+
+test <- descriptive %>% select(num_range("hv101_", 1:95, width = 2))
+
+ones_count <- sum(as.matrix(descriptive %>% select(num_range("hv101_", 1:95, width = 2))) == 1, na.rm = TRUE)
+
+
+filtered_101 <- descriptive %>%
+  select(num_range("hv101_", 1:95, width = 2)) %>% 
+  select(where(~ any(. == 1, na.rm = TRUE)))
+
+filtered_106 <- descriptive %>%
+  select(num_range("hv106_", c(1:8, 10, 11, 13), width = 2))
+
+filtered <- cbind(filtered_101, filtered_106)
+
+filtered <- filtered %>% sample_n(50000)
+
+filtered <- filtered %>%
+  rowwise() %>%
+  mutate(head_educ = {
+    # Find indices where hv101 equals 1
+    idx <- which(c_across(starts_with("hv101")) == 1)
+    # If any found, get the corresponding hv106 value from the first match; otherwise, NA
+    if (length(idx) > 0) c_across(starts_with("hv106"))[idx[1]] else NA_integer_
+  }) %>%
+  ungroup()
+
+
+sampled <- filtered %>% sample_n(1000)
+
+
+
+
+
+
+# Read in the full dataset that combined all households
+descriptive <- descriptive %>%
+  mutate(educ_head = case_when(
+    hv101_01 == 1 ~ hv106_01,
+    hv101_02 == 1 ~ hv106_02,
+    hv101_03 == 1 ~ hv106_03,
+    hv101_04 == 1 ~ hv106_04,
+    hv101_05 == 1 ~ hv106_05,
+    hv101_06 == 1 ~ hv106_06,
+    hv101_07 == 1 ~ hv106_07,
+    hv101_08 == 1 ~ hv106_08,
+    # hv101_09 == 1 ~ hv106_09,
+    hv101_10 == 1 ~ hv106_10,
+    hv101_11 == 1 ~ hv106_11,
+    # hv101_12 == 1 ~ hv106_12,
+    hv101_13 == 1 ~ hv106_13,
+    TRUE ~ NA_real_  # In case no household head is found
+  ))
+
+descriptive %>% tabyl(educ_head)
+
+saveRDS(descriptive, file = "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/descriptive.rds")
 
 
 # Animal Diarrhea Trend ---------------------------------------------------
@@ -950,8 +1119,13 @@ kruskal_test_result <- kruskal.test(percent_diarrhea ~ animal_total_cut, data = 
 print(kruskal_test_result)
 
 diarrhea_data <- data.frame(
-  group = factor(c("Unknown/No Animals", "1-3", "4-7", "8-13", "14-25", "26-475")),
-  prevalence = c(13.23, 13.50, 12.59, 12.17, 11.97, 11.19)
+  group = factor(c("Unknown", "No Animals", "1-3", "4-7", "8-13", "14-25", "26-475")),
+  prevalence = c(11.61,12.09,13.71,12.77,12.31,12.02,11.22)
+)
+
+diarrhea_data <- data.frame(
+  group = factor(c("1-3", "4-7", "8-13", "14-25", "26-475")),
+  prevalence = c(13.71,12.77,12.31,12.02,11.22)
 )
 
 # Perform Kruskal-Wallis test
@@ -1201,6 +1375,272 @@ print(p2)
 library(patchwork)
 
 print(p + p2)
+
+
+
+
+# New Model ----
+
+
+descriptive   <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/descriptive.rds")
+
+# Read in the file that lists all countries
+source("countries.R") 
+
+# Create a list to bind all the DFs together at the end.
+codebook <- list()
+
+# Start of for_loop
+for (i in 1:nrow(countries)){
+  
+  country <- countries$country[i]
+  name_year <- countries$name_year[i]
+  
+  # Skip Nigeria 1990 because no codebook
+  if(name_year == "NG_90") next
+  
+  # Set the working directory to the specific country  
+  setwd(paste0("~/data-mdavis65/steven_sola/", country,"/",name_year,"/",name_year,"_hh"))
+  
+  # Read in survey data (Household member)
+  files <- list.files(getwd(), pattern="(\\.MAP|\\.map)", recursive = TRUE)
+  
+  # Set the locale for the files (helps with reading in weird formatting)
+  locale <- locale(encoding = "latin1")
+  
+  # Read in the codebook files
+  water_source <- read_csv(files, show_col_types = F, col_names = "HV201", locale = locale)
+  
+  # Slice the codebook that was written in
+  # Each one has "Piped" in common at the start, but they end at the different points.
+  # Then separate out the result between the code and the hv201_source
+  # Finally, get rid of all the missing labels
+  water_source <- water_source %>% slice((grep("(PIPED|Piped|piped)", HV201)):(grep("(HV202|HV201a|HV204|HV205)", HV201)-1)) %>% 
+    separate(HV201, c("code", "hv201_source"), sep = "\\s", extra = "merge") %>% 
+    filter(!is.na(hv201_source))
+  
+  # Get rid of some artifacts from the codebook
+  water_source$hv201_source <- str_remove(water_source$hv201_source, "\\?")
+  water_source$hv201_source <- str_remove(water_source$hv201_source, "\\{CG\\}")
+  
+  # Further slice the codebook to focus on the main codes and not missings/other
+  # NG_15 is funny and doesn't have codes from Missing/Other
+  if(name_year != "NG_15") {
+    water_source <- water_source %>% slice(1:(grep("(Missing|applicable|NotAppl)", hv201_source))-1)
+  }
+  
+  # Trim the white space in the hv201_source variable
+  water_source$hv201_source <- trimws(water_source$hv201_source)
+  
+  # Add in the name_year variable
+  water_source$name_year <- name_year
+  
+  # remove the strange characters from MZ_97 and CI_9899
+  if(name_year == "MZ_97") {
+    water_source$hv201_source <- gsub("ÿû ","", water_source$hv201_source)
+  }
+  
+  if(name_year == "CI_9899") {
+    water_source$hv201_source <- gsub("ÿ","", water_source$hv201_source)
+  }
+  
+  # Save all the df together to bind together
+  codebook[[i]] <- water_source
+  
+  # Print the name that is finished
+  print(paste0(name_year, " has finished processing"))
+  
+  # Remove everything except two objects to save on memory costs
+  rm(list = setdiff(ls(), c("countries", "codebook", "descriptive")))
+}
+
+# bind all the DFs generated together
+codebook <- do.call(rbind, codebook)
+
+# Set the 96's in the codebook to "Other"
+codebook <- codebook %>% mutate(hv201_source = if_else(hv201_source == 96, "Other", hv201_source))
+
+# Set the code in the codebook to numeric to match the full dataset
+codebook$code <- as.numeric(codebook$code)
+
+# Left join the hv201_sources in the codebook to the full dataset
+descriptive <- descriptive %>% left_join(codebook, by = join_by(name_year, hv201 == code))
+
+# Categorize the source of the water. 
+descriptive <- descriptive %>% mutate(hv201_sourcecat = case_when(
+  str_detect(hv201_source, "(river|River|Surface water)") ~ "Surface water/River",
+  str_detect(hv201_source, "(Open|open|not|Unprotected|unprotected|fountain|Non|land|^Public water$)") ~ "Unprotected",
+  str_detect(hv201_source, "(Covered|covered|Protected|protected|Improved)") ~ "Protected/Improved",
+  str_detect(hv201_source, "(Piped|pipe|tap|Tap|faucet)") ~ "Piped",
+  str_detect(hv201_source, "(Borehole|Barehole|borehole|Borehl|stand|bore hole|Manual|Tube|Drilling)") ~ "Borehole",
+  str_detect(hv201_source, "(Piped|pipe|tap|Tap|house|courtyard)") ~ "Piped",
+  str_detect(hv201_source, "(Well|well)") ~ "Well",
+  str_detect(hv201_source, "(Spring|^Other spring$)") ~ "Spring",
+  str_detect(hv201_source, "(Sachet|sachet|Water bag|Bag water|plastic bag|Satchel)") ~ "Vendor",
+  str_detect(hv201_source, "(Lake|lake|Dam|Resevoir|Dugout|Canal|Gravity|road|Forage|cesspool|Irrigation|surface)") ~ "Surface water/River",
+  str_detect(hv201_source, "(Vendor|vendor|Purchased|Tanker|TANKER|tanker|Bicycle|Motorcycle|Cart|vender|station|merchant|seller|Arranged source|Bottled water)") ~ "Vendor",
+  str_detect(hv201_source, "(rainwater|Rainwater|Rain-water|RAINWATER|rain water)") ~ "Rainwater",
+  str_detect(hv201_source, "(other|Other|OTHER)") ~ "Other",
+  str_detect(hv201_source, "(Neighbor|Neighbour|neighbor|Naighbor)") ~ "Piped",
+  TRUE ~ "Other/Unknown"))
+
+# Categorize the source of the water. 
+descriptive <- descriptive %>% mutate(hv201_improved = case_when(
+  hv201_sourcecat %in% c("Unprotected", "Vendor", "Bottled water",
+                         "Surface water/River", "Spring", "Well") ~ "Unimproved",
+  hv201_sourcecat %in% c("Protected/Improved", "Borehole", "Piped", "Rainwater") ~ "Improved",
+  TRUE ~ "Other/Unknown"))
+
+descriptive <- descriptive %>% mutate(unique_hh = paste0(name_year,"_",hhid))
+
+descriptive$unique_hh <- gsub("\\s+", "", descriptive$unique_hh)
+
+descriptive <- descriptive %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
+
+descriptive <- descriptive %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
+
+descriptive <- descriptive %>%
+  mutate(educ_head = case_when(
+    educ_head == 0 ~ "No Education/Preschool",
+    educ_head == 1 ~ "Primary",
+    educ_head == 2 ~ "Secondary",
+    educ_head == 3 ~ "Higher",
+    educ_head == 4 ~ NA_character_,
+    educ_head == 8 ~ NA_character_,
+    educ_head == 9 ~ NA_character_,
+    TRUE ~ NA_character_))
+
+descriptive <- descriptive %>%
+  mutate(educ_head = factor(educ_head, levels = c("No Education/Preschool", "Primary", "Secondary", "Higher")))
+
+descriptive_model <- descriptive %>% select(diarrhea_dichot,hv201_improved, hv270, b8, hv246, 
+                                      name_year,
+                                      chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                      bull_cow_cattle_present, horse_donkey_present, animal_total)
+
+descriptive_model$unique_hh <- as.factor(descriptive_model$unique_hh)
+descriptive_model$name_year <- as.factor(descriptive_model$name_year)
+
+
+model_aim2 <- glmer(diarrhea_dichot ~ hv246 + hv270 + b8 + hv201_improved + (1|name_year), 
+                       data = descriptive_model, family = poisson(link = "log"))
+
+saveRDS(model_aim2, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/aim2_newmodel_030525.rds")
+
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + hv270 + b8 + hv201_improved + (1|name_year), 
+                    data = descriptive_model, family = poisson(link = "log"))
+
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/chicken_poisson_onere.rds")
+
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + hv270 + b8 + hv201_improved + (1|name_year), 
+                    data = descriptive_model, family = poisson(link = "log"))
+
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/bull_poisson_onere.rds")
+
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + hv270 + b8 + hv201_improved + (1|name_year), 
+                    data = descriptive_model, family = poisson(link = "log"))
+
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/goat_poisson_onere.rds")
+
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + hv270 + b8 + hv201_improved + (1|name_year), 
+                    data = descriptive_model, family = poisson(link = "log"))
+
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/horse_poisson_onere.rds")
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present + hv270 + b8 + hv201_improved + (1|name_year), 
+                    data = descriptive_model, family = poisson(link = "log"))
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/pig_poisson_onere.rds")
+
+
+## Continuous outcome number of animals
+
+model_aim2 <- glmer(diarrhea_dichot ~ I(animal_total/5) + hv270 + b8 + hv201_improved + (1|name_year), 
+                    data = descriptive_model, family = poisson(link = "log"))
+
+saveRDS(model_aim2, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/animaltotal.rds")
+
+
+# New Model Tables ----
+
+noeducation_2random <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/new_noeducation_2random.rds")
+summary(noeducation_2random)
+
+model_aim2 %>% tbl_regression(label = list(hv246 ~ "Animal Ownership", 
+                                           educ_head ~ "Household Head Education",
+                                           hv270 ~ "SES Group",
+                                           hv201_improved ~ "Improved Water Source",
+                                           b8 ~ "Age of Child (Years)"),
+                              exponentiate = TRUE) %>% bold_labels()
+
+full_2random <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/new_full_2random.rds")
+summary(full_2random)
+
+full_2random %>% tbl_regression(label = list(hv246 ~ "Animal Ownership", 
+                                           educ_head ~ "Household Head Education",
+                                           hv270 ~ "SES Group",
+                                           hv201_improved ~ "Improved Water Source",
+                                           b8 ~ "Age of Child (Years)"),
+                              exponentiate = TRUE) %>% bold_labels()
+
+noimprovedsource_2random <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/new_noimprovedsource_2random.rds")
+summary(noimprovedsource_2random)
+
+model_aim2 %>% tbl_regression(label = list(hv246 ~ "Animal Ownership", 
+                                           educ_head ~ "Household Head Education",
+                                           hv270 ~ "SES Group",
+                                           hv201_improved ~ "Improved Water Source",
+                                           b8 ~ "Age of Child (Years)"),
+                              exponentiate = TRUE) %>% bold_labels()
+
+full_nosurveyyear <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/new_full_nosurveyyear.rds")
+summary(full_nosurveyyear)
+
+model_aim2 %>% tbl_regression(label = list(hv246 ~ "Animal Ownership", 
+                                           educ_head ~ "Household Head Education",
+                                           hv270 ~ "SES Group",
+                                           hv201_improved ~ "Improved Water Source",
+                                           b8 ~ "Age of Child (Years)"),
+                              exponentiate = TRUE) %>% bold_labels()
+
+full_nohousehold <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/new_full_nohousehold.rds")
+summary(full_nohousehold)
+
+full_nohousehold %>% tbl_regression(label = list(hv246 ~ "Animal Ownership", 
+                                                          educ_head ~ "Household Head Education",
+                                                          hv270 ~ "SES Group",
+                                                          hv201_improved ~ "Improved Water Source",
+                                                          b8 ~ "Age of Child (Years)"),
+                                             exponentiate = TRUE) %>% bold_labels()
+
+noeduc_nohouseholdyescluster <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/new_noeduc_nohouseholdyescluster.rds")
+summary(noeduc_nohouseholdyescluster)
+
+noeduc_nohouseholdyescluster %>% tbl_regression(label = list(hv246 ~ "Animal Ownership", 
+                                                 hv270 ~ "SES Group",
+                                                 hv201_improved ~ "Improved Water Source",
+                                                 b8 ~ "Age of Child (Years)"),
+                                    exponentiate = TRUE) %>% bold_labels()
+
+
+noeduc_nohousehold <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/new_noeduc_nohousehold.rds")
+summary(noeduc_nohousehold)
+
+noeduc_nohousehold %>% tbl_regression(label = list(hv246 ~ "Animal Ownership", 
+                                                 hv270 ~ "SES Group",
+                                                 hv201_improved ~ "Improved Water Source",
+                                                 b8 ~ "Age of Child (Years)"),
+                                    exponentiate = TRUE) %>% bold_labels()
+
+
 
 
 # Unadjusted Models ------------------------------------------------------------------
@@ -1509,40 +1949,40 @@ saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/mode
 
 # Model Tables ------------------------------------------------------------
 
-model_bull <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/hhgroup_model_bull.rds")
-model_chicken <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/hhgroup_model_chicken.rds")
-model_goat <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/hhgroup_model_goat.rds")
-model_horse <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/hhgroup_model_horse.rds")
-model_pig <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/hhgroup_model_pig.rds")
+model_chicken <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/chicken_poisson_onere.rds")
+model_bull <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/bull_poisson_onere.rds")
+model_goat <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/goat_poisson_onere.rds")
+model_horse <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/horse_poisson_onere.rds")
+model_pig <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/pig_poisson_onere.rds")
 
 table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry", 
-                                                               region_combined ~ "Region",
+                                                               b8 ~ "Age of Child (Years)",
                                                                hv270 ~ "SES Group", 
-                                                               b8 ~ "Age of Child (Years)"),
+                                                               hv201_improved ~ "Water Source"),
                                                   exponentiate = TRUE) %>% bold_labels()
 
 table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle", 
-                                                         region_combined ~ "Region",
+                                                         b8 ~ "Age of Child (Years)",
                                                          hv270 ~ "SES Group", 
-                                                         b8 ~ "Age of Child (Years)"),
+                                                         hv201_improved ~ "Water Source"),
                                             exponentiate = TRUE) %>% bold_labels()
 
 table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep", 
-                                                         region_combined ~ "Region",
+                                                         b8 ~ "Age of Child (Years)",
                                                          hv270 ~ "SES Group", 
-                                                         b8 ~ "Age of Child (Years)"),
+                                                         hv201_improved ~ "Water Source"),
                                             exponentiate = TRUE) %>% bold_labels()
 
 table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey", 
-                                                           region_combined ~ "Region",
+                                                           b8 ~ "Age of Child (Years)",
                                                            hv270 ~ "SES Group", 
-                                                           b8 ~ "Age of Child (Years)"),
+                                                           hv201_improved ~ "Water Source"),
                                               exponentiate = TRUE) %>% bold_labels()
 
 table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig", 
-                                                       region_combined ~ "Region",
+                                                       b8 ~ "Age of Child (Years)",
                                                        hv270 ~ "SES Group", 
-                                                       b8 ~ "Age of Child (Years)"),
+                                                       hv201_improved ~ "Water Source"),
                                           exponentiate = TRUE) %>% bold_labels()
 
 combined_models <- tbl_merge(tbls = list(table_chicken, table_bull, table_goat, table_horse, table_pig),
@@ -1554,8 +1994,9 @@ combined_models <- tbl_merge(tbls = list(table_chicken, table_bull, table_goat, 
                       dplyr::arrange(factor(var_label, levels =
                                               c("Chicken/Duck/Poultry", "Bull/Cow/Cattle",
                                                 "Goat/Sheep", "Horse/Donkey",
-                                                "Pig", "Region", "SES Group",
-                                                "Age of Child (Years)"))))
+                                                "Pig", "SES Group",
+                                                "Age of Child (Years)",
+                                                "Water Source"))))
 combined_models <- combined_models %>% as_gt()
 
 combined_models <- combined_models %>% 
@@ -1570,6 +2011,59 @@ combined_models <- combined_models %>%
                      cells_column_spanners()))
 
 combined_models
+
+
+# Model Tables ------------------------------------------------------------
+
+total_5 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/animaltotal.rds")
+total_10 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/animaltotal_10.rds")
+total_15 <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/models/animaltotal_15.rds")
+
+table_total_5 <- total_5 %>% tbl_regression(label = list(`I(animal_total/5)` ~ "Animal Total 5", 
+                                                               b8 ~ "Age of Child (Years)",
+                                                               hv270 ~ "SES Group", 
+                                                               hv201_improved ~ "Water Source"),
+                                                  exponentiate = TRUE) %>% bold_labels()
+
+table_total_10 <- total_10 %>% tbl_regression(label = list(`I(animal_total/10)` ~ "Animal Total 10", 
+                                                         b8 ~ "Age of Child (Years)",
+                                                         hv270 ~ "SES Group", 
+                                                         hv201_improved ~ "Water Source"),
+                                            exponentiate = TRUE) %>% bold_labels()
+
+table_total_15 <- total_15 %>% tbl_regression(label = list(`I(animal_total/15)` ~ "Animal Total 15", 
+                                                         b8 ~ "Age of Child (Years)",
+                                                         hv270 ~ "SES Group", 
+                                                         hv201_improved ~ "Water Source"),
+                                            exponentiate = TRUE) %>% bold_labels()
+
+combined_models <- tbl_merge(tbls = list(table_total_5, table_total_10, table_total_15),
+                             tab_spanner = c("**Total 5**", "**Total 10**",
+                                             "**Total 15**")) %>%
+  
+  modify_table_body(~.x %>%
+                      dplyr::arrange(factor(var_label, levels =
+                                              c("Animal Total 5", "Animal Total 10",
+                                                "Animal Total 15", "SES Group",
+                                                "Age of Child (Years)",
+                                                "Water Source"))))
+combined_models <- combined_models %>% as_gt()
+
+combined_models <- combined_models %>% 
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "gray80",
+      weight = px(2),
+      style = "solid"),
+    locations = list(cells_body(),
+                     cells_column_labels(),
+                     cells_column_spanners()))
+
+combined_models
+
+
+
 
 # Significance Testing for Random Effects ------------------------
 

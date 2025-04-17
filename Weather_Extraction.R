@@ -55,7 +55,24 @@ file_hh <- str_subset(files, "HR")
 hh <- read_dta(file_hh)
 
 # Filter the list for the Spatial, save to environment
-file_spatial <- str_subset(files, "GE")
+# Instead of a single file, get all possible "GE" files
+file_spatial_list <- str_subset(files, "GE")
+
+# If no spatial file is found, skip the rest for this country
+if (length(file_spatial_list) == 0) {
+  message("No GE file found for ", name_year, ". Skipping.")
+  next  # Skip to the next country in 'countries'
+}
+
+# If you only want to process the *first* GE file found:
+file_spatial <- file_spatial_list[1]
+
+# Double-check if the file name is empty (very rare but safe to check)
+if (is.null(file_spatial) || file_spatial == "") {
+  message("`file_spatial` is empty for ", name_year, ". Skipping.")
+  next
+}
+
 spatial <- st_read(file_spatial)
 
 # Remove empty rows of HH dataset
@@ -97,7 +114,7 @@ print("Dates were converted from the Ethiopian to the Gregorian Calendar")
   }
 
 # 60 Days before date of the interview
-full_survey$dateinterview_minus60 <- full_survey$dateinterview - 60
+full_survey$dateinterview_minus60 <- full_survey$dateinterview - 105
 full_survey$dateinterview_minus60 <- as.Date(full_survey$dateinterview_minus60, format = "%Y-%m-%d")
 
 # 1 day after the date of the interview
@@ -164,8 +181,10 @@ for (obs in 1:nrow(unique_obs)) {
   files_subset <- str_subset(files, paste0(match_dates, collapse = '|')) %>% rev()
   
   # Variables to extract from data
-  accum_var <- c("e", "sro", "ssro", "tp")
-  instant_var <- c("t2m", "skt", "lai_lv", "lai_hv", "d2m")
+  accum_var <- c("sro", "tp")
+  #"e", "ssro",)
+  instant_var <- c("t2m", "skt") 
+  #"lai_lv", "lai_hv", "d2m")
   variables <- c(accum_var, instant_var)
   
   # UTC Offset Number

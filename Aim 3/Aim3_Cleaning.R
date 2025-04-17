@@ -46,37 +46,39 @@ data_aim3 <- data_aim3 %>%
 # Clean KGC ---------------------------------------------------------------
 
 # Open the fine resolution KGZ file
-kgz_fine <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/kgz/kgc_small.rds") %>% select(LATNUM, LONGNUM, ClimateZ)
+kgz_fine <- readRDS("~/data-mdavis65/steven_sola/2_Weather_Processed/Rdata/kgz_complete.rds") %>% select(LATNUM, LONGNUM, kgc)
 
 data_aim3 <- left_join(data_aim3, kgz_fine, by = c("LATNUM", "LONGNUM"))
 
+data_aim3 <- data_aim3 %>% rename(kgc = kgc.y)
+
 # Categorize the Koppen-Geiger Climate Classification System into fine details
 data_aim3 <- data_aim3 %>% mutate(kgc_fine = case_when(
-  ClimateZ == "Af"  ~ "Tropical Rainforest",
-  ClimateZ == "Am"  ~ "Tropical Monsoon",
-  ClimateZ == "As"  ~ "Tropical Savanna, Dry Summer",
-  ClimateZ == "Aw"  ~ "Tropical Savanna Dry Winter",
-  ClimateZ == "BSh" ~ "Dry Semi-Arid Hot",
-  ClimateZ == "BSk" ~ "Dry Semi-Arid Cold",
-  ClimateZ == "BWh" ~ "Dry Arid Hot",
-  ClimateZ == "BWk" ~ "Dry Arid Desert Cold",
-  ClimateZ == "Cfa" ~ "Temperate No Dry Season Hot Summer",
-  ClimateZ == "Cfb" ~ "Temperate No Dry Season Warm Summer",
-  ClimateZ == "Csa" ~ "Temperate Dry Summer Hot Summer",
-  ClimateZ == "Csb" ~ "Temperate Dry Summer Warm Summer",
-  ClimateZ == "Cwa" ~ "Temperate Dry Winter Hot Summer",
-  ClimateZ == "Cwb" ~ "Temperate Dry Winter Warm Summer",
-  ClimateZ == "Cwc" ~ "Temperate Dry Winter Cold Summer",
-  ClimateZ == "ET" ~ "Polar Tundra",
-  ClimateZ == "Ocean" ~ NA_character_,
+  kgc == "Af"  ~ "Tropical Rainforest",
+  kgc == "Am"  ~ "Tropical Monsoon",
+  kgc == "As"  ~ "Tropical Savanna, Dry Summer",
+  kgc == "Aw"  ~ "Tropical Savanna Dry Winter",
+  kgc == "BSh" ~ "Dry Semi-Arid Hot",
+  kgc == "BSk" ~ "Dry Semi-Arid Cold",
+  kgc == "BWh" ~ "Dry Arid Hot",
+  kgc == "BWk" ~ "Dry Arid Desert Cold",
+  kgc == "Cfa" ~ "Temperate No Dry Season Hot Summer",
+  kgc == "Cfb" ~ "Temperate No Dry Season Warm Summer",
+  kgc == "Csa" ~ "Temperate Dry Summer Hot Summer",
+  kgc == "Csb" ~ "Temperate Dry Summer Warm Summer",
+  kgc == "Cwa" ~ "Temperate Dry Winter Hot Summer",
+  kgc == "Cwb" ~ "Temperate Dry Winter Warm Summer",
+  kgc == "Cwc" ~ "Temperate Dry Winter Cold Summer",
+  kgc == "ET" ~ "Polar Tundra",
+  kgc == "Ocean" ~ NA_character_,
   TRUE ~ NA_character_))
 
 # Categorize the Koppen-Geiger Climate Classification System into course details
 data_aim3 <- data_aim3 %>% mutate(kgc_course = case_when(
-  ClimateZ %in% c("Af", "Am", "As", "Aw") ~ "Tropical",
-  ClimateZ %in% c("BSh", "BSk", "BWh", "BWk") ~ "Dry",
-  ClimateZ %in% c("Cfa", "Cfb", "Csa", "Csb", "Cwa", "Cwb", "Cwc") ~ "Temperate",
-  ClimateZ %in% c("ET", "Ocean") ~ "Other",
+  kgc %in% c("Af", "Am", "As", "Aw") ~ "Tropical",
+  kgc %in% c("BSh", "BSk", "BWh", "BWk") ~ "Dry",
+  kgc %in% c("Cfa", "Cfb", "Csa", "Csb", "Cwa", "Cwb", "Cwc") ~ "Temperate",
+  kgc %in% c("ET", "Ocean") ~ "Other",
   TRUE ~ NA_character_))
 
 
@@ -100,6 +102,124 @@ source("countries.R")
 
 data_aim3 <- left_join(data_aim3, countries, by = "name_year")
 
+# # Codebook Animals --------------------------------------------------------
+# 
+# # Check which countries have animals
+# # Group by each survey
+# # Check number of people in each survey
+# # Check how many answered the question "animals owned?"
+# # If missing of question == number of people, no info
+# # We can exclude those people that we don't have information on
+# animals_not_present <- data_aim3 %>% 
+#   group_by(name_year) %>% 
+#   summarise(n_rows = n(),
+#             missing_count = sum(is.na(hv246)),
+#             all_missing = n_rows == missing_count) %>% 
+#   filter(all_missing == TRUE) %>% 
+#   select(name_year) 
+# 
+# # Filter out those countries that don't have animals
+# countries <- countries %>% anti_join(animals_not_present, by = "name_year")
+# 
+# # Filter out specific countries
+# countries <- countries %>% filter(!name_year %in% c("CM_91", "CM_98", "TD_9697", "CI_05",
+#                                                     "ML_9596", "ML_01", "NI_92", "NI_98",
+#                                                     "SN_05", "TG_98", "TZ_0304"))
+# 
+# # Create a list to bind all the DFs together at the end.
+# codebook <- list()
+# 
+# # Start of for_loop
+# for (i in 1:nrow(countries)){
+#   
+#   country <- countries$country[i]
+#   name_year <- countries$name_year[i]
+#   
+#   # Set the working directory to the specific country  
+#   setwd(paste0("~/data-mdavis65/steven_sola/", country,"/",name_year,"/",name_year,"_hhmember"))
+#   
+#   # Read in survey data (Household member)
+#   files <- list.files(getwd(), pattern="(\\.MAP|\\.map)", recursive = TRUE)
+#   
+#   # Set the locale for the files (helps with reading in weird formatting)
+#   locale <- locale(encoding = "latin1")
+#   
+#   # Read in the codebook files
+#   animals <- read_csv(files, show_col_types = F, col_names = "HV246", locale = locale)
+#   
+#   # Slice the codebook that was written in
+#   # Each one has "Piped" in common at the start, but they end at the different points.
+#   # Then separate out the result between the code and the hv201_source
+#   # Finally, get rid of all the missing labels
+#   animals <- animals %>% slice((grep("HV246", HV246)):(grep("HV247", HV246)-1)) %>% 
+#     separate(HV246, c("code", "HV246_animal"), sep = "\\s", extra = "merge") %>% 
+#     filter(!is.na(HV246_animal))
+#   
+#   # Only include entries where the "code" has "HV246"
+#   # Filter out where the codebook entry has a "NA
+#   animals <- animals %>% filter(str_detect(code, "HV246")) %>% 
+#     filter(!str_detect(HV246_animal, "NA"))
+#   
+#   # Trim the white space in the HV246_animal variable
+#   animals$HV246_animal <- trimws(animals$HV246_animal)
+#   
+#   # Remove everything after the spaces
+#   animals$HV246_animal <- str_remove(animals$HV246_animal, "  .*")
+#   
+#   # Remove all the (CS) in the dataframe
+#   animals$HV246_animal <- str_remove(animals$HV246_animal, "\\s*\\([^\\)]+\\)")
+#   
+#   # Trim the white space in the hv201_source variable
+#   animals$HV246_animal <- trimws(animals$HV246_animal)
+#   
+#   # Add in the name_year variable
+#   animals$name_year <- name_year
+#   
+#   # Save all the df together to bind together
+#   codebook[[i]] <- animals
+#   
+#   # Print the name that is finished
+#   print(paste0(name_year, " has finished processing"))
+#   
+# }
+# 
+# # bind all the DFs generated together
+# codebook <- do.call(rbind, codebook)
+# 
+# # Filter out the meaningless entries that didn't specify an animal
+# codebook <- codebook %>% filter(!str_detect(HV246_animal, "(Own|Owns|own) CS")) %>% 
+#   filter(!str_detect(HV246_animal, "^CS (own|Own|Owns)$"))
+# 
+# # When the codebook mentions any other animal, just change it to "other"
+# codebook <- codebook %>% mutate(HV246_animal = if_else(str_detect(HV246_animal, "(Other|other)"), "other", HV246_animal))
+# 
+# # Filter out HV246, since that is standard across all surveys
+# codebook <- codebook %>% filter(!str_detect(code, "^HV246$"))
+# 
+# # Clean up 4 "codes" that have parentheses and extra bits not needed
+# codebook <- codebook %>% mutate(code = if_else(str_detect(code, "\\("), str_extract(code, "HV246(A|B|C)"), code))
+# 
+# # Cleaning up the distinct lables -----------------------------------------
+# codebook <- codebook %>% mutate(HV246_animal_recode = case_when(str_detect(HV246_animal, "(Chickens|Chicken|chicken|turkey|Poultry|Fowl|poultry|bird|fowl)") ~ "chicken_poultry",
+#                                                                 str_detect(HV246_animal, "(Bull|bull|cow|Cow)") ~ "bull_cow",
+#                                                                 str_detect(HV246_animal, "(Goat|goat)") ~ "goat",
+#                                                                 str_detect(HV246_animal, "(Sheep|sheep)") ~ "sheep",
+#                                                                 str_detect(HV246_animal, "(cattle|Cattle|Zebus)") ~ "cattle",
+#                                                                 str_detect(HV246_animal, "(Horses|horse|donkey|Donkey|mule)") ~ "horse_donkey",
+#                                                                 str_detect(HV246_animal, "(camel|Camel)") ~ "camel",
+#                                                                 str_detect(HV246_animal, "(grasscutter|rodent|Rodent|guinea pig|guinea pigs)") ~ "rodent",
+#                                                                 str_detect(HV246_animal, "(pork|porc|Pigs|pig)") ~ "pig",
+#                                                                 str_detect(HV246_animal, "(duck|geese|Duck)") ~ "duck",
+#                                                                 str_detect(HV246_animal, "(rabbit|Rabbits)") ~ "rabbit",
+#                                                                 str_detect(HV246_animal, "(bee|Bee)") ~ "bee",
+#                                                                 TRUE ~ HV246_animal))
+# 
+# # Prepend "hv246_" to the above
+# codebook$HV246_animal_recode <- paste0("hv246_", codebook$HV246_animal_recode)
+# 
+# # save the codebook as a .rds file
+# saveRDS(codebook, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/codebook.rds")
+
 # Animals -----------------------------------------------------------------
 
 # If hv246 starts with "9", set it to missing
@@ -110,7 +230,7 @@ data_aim3 <- data_aim3 %>%
                 mutate(across(starts_with("hv246_"), ~ ifelse(. %in% c(0, 98, 99), NA, .)))
 
 # Create a new "hv246_sheep" variable, since apparently it didn't work in the other script? WTF
-data_aim3$hv246_sheep <- data_aim3$hv246e
+data_aim3$hv246_sheep_2 <- data_aim3$hv246e
 
 # sum across all the variables that start with "hv246_bull_cow" and put the total in a new variable animal$hv_246_bull_cow_total
 data_aim3 <- data_aim3 %>%
@@ -277,128 +397,28 @@ data_aim3 <- data_aim3 %>%
                mutate(epe_1528_95 = rowSums(select(., num_range("tp_", 15:28)) > tp_totalminus15_28_95)) %>% 
                mutate(epe_2228_95 = rowSums(select(., num_range("tp_", 22:28)) > tp_totalminus22_28_95)) %>% 
                mutate(epe_3060_95 = rowSums(select(., num_range("tp_", 30:60)) > tp_totalminus30_60_95)) %>% 
-               mutate(epe_1560_95 = rowSums(select(., num_range("tp_", 15:60)) > tp_totalminus15_60_95))
+               mutate(epe_1560_95 = rowSums(select(., num_range("tp_", 15:60)) > tp_totalminus15_60_95)) %>% 
+               mutate(epe_15105_95 = rowSums(select(., num_range("tp_", 15:105)) > tp_totalminus15_105_95)) %>% 
+               mutate(epe_30105_95 = rowSums(select(., num_range("tp_", 30:105)) > tp_totalminus30_105_95)) %>% 
+               mutate(epe_60105_95 = rowSums(select(., num_range("tp_", 60:105)) > tp_totalminus60_105_95)) %>% 
+               mutate(epe_1105_95 = rowSums(select(., num_range("tp_", 1:105)) > tp_totalminus1_105_95)) %>% 
+               mutate(epe_1521_95_90day = rowSums(select(., num_range("tp_", 15:21)) > tp_totalminus15_105_95)) %>% 
+               mutate(epe_1528_95_90day = rowSums(select(., num_range("tp_", 15:28)) > tp_totalminus15_105_95)) %>% 
+               mutate(epe_2228_95_90day = rowSums(select(., num_range("tp_", 22:28)) > tp_totalminus15_105_95)) %>% 
+               mutate(epe_3060_95_90day = rowSums(select(., num_range("tp_", 30:60)) > tp_totalminus15_105_95)) %>% 
+               mutate(epe_1560_95_90day = rowSums(select(., num_range("tp_", 15:60)) > tp_totalminus15_105_95)) %>% 
+               mutate(epe_1521_inch = rowSums(select(., num_range("tp_", 15:21)) > 0.0254)) %>% 
+               mutate(epe_1528_inch = rowSums(select(., num_range("tp_", 15:28)) > 0.0254)) %>% 
+               mutate(epe_2228_inch = rowSums(select(., num_range("tp_", 22:28)) > 0.0254)) %>% 
+               mutate(epe_3060_inch = rowSums(select(., num_range("tp_", 30:60)) > 0.0254)) %>% 
+               mutate(epe_1560_inch = rowSums(select(., num_range("tp_", 15:60)) > 0.0254)) %>% 
+               mutate(epe_15105_inch = rowSums(select(., num_range("tp_", 15:105)) > 0.0254)) %>% 
+               mutate(epe_30105_inch = rowSums(select(., num_range("tp_", 30:105)) > 0.0254)) %>% 
+               mutate(epe_60105_inch = rowSums(select(., num_range("tp_", 60:105)) > 0.0254)) %>% 
+               mutate(epe_1105_inch = rowSums(select(., num_range("tp_", 1:105)) > 0.0254))
 
 data_aim3 <- data_aim3 %>%
                 mutate(across(starts_with("epe") & ends_with("_95"), ~ifelse(. >= 1, 1, 0), .names = "{.col}_binary"))
-
-# Codebook Animals --------------------------------------------------------
-
-# Check which countries have animals
-# Group by each survey
-# Check number of people in each survey
-# Check how many answered the question "animals owned?"
-# If missing of question == number of people, no info
-# We can exclude those people that we don't have information on
-animals_not_present <- data_aim3 %>% 
-                         group_by(name_year) %>% 
-                         summarise(n_rows = n(),
-                         missing_count = sum(is.na(hv246)),
-                         all_missing = n_rows == missing_count) %>% 
-                         filter(all_missing == TRUE) %>% 
-                         select(name_year) 
-
-# Filter out those countries that don't have animals
-countries <- countries %>% anti_join(animals_not_present, by = "name_year")
-
-# Filter out specific countries
-countries <- countries %>% filter(!name_year %in% c("CM_91", "CM_98", "TD_9697", "CI_05",
-                                                    "ML_9596", "ML_01", "NI_92", "NI_98",
-                                                    "SN_05", "TG_98", "TZ_0304"))
-
-# Create a list to bind all the DFs together at the end.
-codebook <- list()
-
-# Start of for_loop
-for (i in 1:nrow(countries)){
-  
-  country <- countries$country[i]
-  name_year <- countries$name_year[i]
-  
-  # Set the working directory to the specific country  
-  setwd(paste0("~/data-mdavis65/steven_sola/", country,"/",name_year,"/",name_year,"_hhmember"))
-  
-  # Read in survey data (Household member)
-  files <- list.files(getwd(), pattern="(\\.MAP|\\.map)", recursive = TRUE)
-  
-  # Set the locale for the files (helps with reading in weird formatting)
-  locale <- locale(encoding = "latin1")
-  
-  # Read in the codebook files
-  animals <- read_csv(files, show_col_types = F, col_names = "HV246", locale = locale)
-  
-  # Slice the codebook that was written in
-  # Each one has "Piped" in common at the start, but they end at the different points.
-  # Then separate out the result between the code and the hv201_source
-  # Finally, get rid of all the missing labels
-  animals <- animals %>% slice((grep("HV246", HV246)):(grep("HV247", HV246)-1)) %>% 
-    separate(HV246, c("code", "HV246_animal"), sep = "\\s", extra = "merge") %>% 
-    filter(!is.na(HV246_animal))
-  
-# Only include entries where the "code" has "HV246"
-# Filter out where the codebook entry has a "NA
-animals <- animals %>% filter(str_detect(code, "HV246")) %>% 
-                         filter(!str_detect(HV246_animal, "NA"))
-
-# Trim the white space in the HV246_animal variable
-animals$HV246_animal <- trimws(animals$HV246_animal)
-
-# Remove everything after the spaces
-animals$HV246_animal <- str_remove(animals$HV246_animal, "  .*")
-
-# Remove all the (CS) in the dataframe
-animals$HV246_animal <- str_remove(animals$HV246_animal, "\\s*\\([^\\)]+\\)")
-
-# Trim the white space in the hv201_source variable
-animals$HV246_animal <- trimws(animals$HV246_animal)
-  
-# Add in the name_year variable
-animals$name_year <- name_year
-  
-# Save all the df together to bind together
-codebook[[i]] <- animals
-  
-# Print the name that is finished
-print(paste0(name_year, " has finished processing"))
-
-}
-
-# bind all the DFs generated together
-codebook <- do.call(rbind, codebook)
-
-# Filter out the meaningless entries that didn't specify an animal
-codebook <- codebook %>% filter(!str_detect(HV246_animal, "(Own|Owns|own) CS")) %>% 
-                         filter(!str_detect(HV246_animal, "^CS (own|Own|Owns)$"))
-
-# When the codebook mentions any other animal, just change it to "other"
-codebook <- codebook %>% mutate(HV246_animal = if_else(str_detect(HV246_animal, "(Other|other)"), "other", HV246_animal))
-
-# Filter out HV246, since that is standard across all surveys
-codebook <- codebook %>% filter(!str_detect(code, "^HV246$"))
-
-# Clean up 4 "codes" that have parentheses and extra bits not needed
-codebook <- codebook %>% mutate(code = if_else(str_detect(code, "\\("), str_extract(code, "HV246(A|B|C)"), code))
-
-# Cleaning up the distinct lables -----------------------------------------
-codebook <- codebook %>% mutate(HV246_animal_recode = case_when(str_detect(HV246_animal, "(Chickens|Chicken|chicken|turkey|Poultry|Fowl|poultry|bird|fowl)") ~ "chicken_poultry",
-                                                                str_detect(HV246_animal, "(Bull|bull|cow|Cow)") ~ "bull_cow",
-                                                                str_detect(HV246_animal, "(Goat|goat)") ~ "goat",
-                                                                str_detect(HV246_animal, "(Sheep|sheep)") ~ "sheep",
-                                                                str_detect(HV246_animal, "(cattle|Cattle|Zebus)") ~ "cattle",
-                                                                str_detect(HV246_animal, "(Horses|horse|donkey|Donkey|mule)") ~ "horse_donkey",
-                                                                str_detect(HV246_animal, "(camel|Camel)") ~ "camel",
-                                                                str_detect(HV246_animal, "(grasscutter|rodent|Rodent|guinea pig|guinea pigs)") ~ "rodent",
-                                                                str_detect(HV246_animal, "(pork|porc|Pigs|pig)") ~ "pig",
-                                                                str_detect(HV246_animal, "(duck|geese|Duck)") ~ "duck",
-                                                                str_detect(HV246_animal, "(rabbit|Rabbits)") ~ "rabbit",
-                                                                str_detect(HV246_animal, "(bee|Bee)") ~ "bee",
-                                                                TRUE ~ HV246_animal))
-
-# Prepend "hv246_" to the above
-codebook$HV246_animal_recode <- paste0("hv246_", codebook$HV246_animal_recode)
-
-# save the codebook as a .rds file
-saveRDS(codebook, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/codebook.rds")
 
 # Clean Unneeded Columns --------------------------------------------------
 
@@ -409,7 +429,7 @@ data_aim3 <- data_aim3 %>%
 
 # Convert Kelvin to Celsius for skin temp, 2m temp, 2m dewpoint
 data_aim3 <- data_aim3 %>% 
-  mutate_at(vars(starts_with(c("skt","t2m","d2m"))),  ~.x - 273.15)
+  mutate_at(vars(starts_with(c("skt","t2m"))),  ~.x - 273.15)
 
 # Convert m to cm for surface runoff (sro) and total precipitation (tp)
 data_aim3 <- data_aim3 %>% 

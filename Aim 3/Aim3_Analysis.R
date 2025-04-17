@@ -8,6 +8,8 @@ library(corrr)
 library(corrplot)
 library(scales)
 library(lme4)
+library(lmtest)
+library(clubSandwich)
 library(gtsummary)
 library(sf)
 library(gt)
@@ -40,8 +42,8 @@ under5_animal <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 
 
 # Get the Lat, Long, U/R designation, and Year from the dataset
 # Drop all the missing and remove any improbable values
-mapping <- descriptive %>% 
-  select(LATNUM, LONGNUM, region, kgc_course) %>% 
+mapping <- under5_animal %>% 
+  select(LATNUM, LONGNUM, kgc_course) %>% 
   drop_na() %>% 
   filter(!between(LATNUM, -0.0001, 0.0001))
 
@@ -65,23 +67,6 @@ shapefile <- st_transform(shapefile, crs = 4326)
 # Set the CRS for the datapoints
 points <- mapping %>% 
   st_as_sf(coords = c("LONGNUM", "LATNUM"), crs = 4326)
-
-# Plot the Region households
-ggplot() + 
-  geom_sf(data = shapefile, fill = "white") +
-  geom_sf(data = points, aes(color = region), size = 0.4, alpha = 0.15) +
-  scale_color_manual(
-    values = c("Eastern Africa" = "#e41a1c", "Middle Africa" = "#377eb8",
-               "Southern Africa" = "#4daf4a", "Western Africa" = "#984ea3"),
-    name = "Region") +
-  guides(color = guide_legend(override.aes = list(size = 4, alpha = 1))) + # Larger legend points
-  theme_void() + 
-  theme(legend.position = "inside",
-        legend.position.inside = c(0.25, 0.45),
-        legend.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        legend.text = element_text(size = 16),
-        plot.title = element_text(hjust = 0.5, vjust = 0.9, size = 22))
-
 
 # Plot the KGZ households
 ggplot() + 
@@ -366,7 +351,7 @@ rural_hh %>% filter(!animal_singleonly %in% c("none", "other")) %>%
 
 # Summarise the diarrhea by any animals -----------------------------------
 
-table1 <- descriptive %>% 
+table1 <- under5_animal %>% 
   group_by(name_year, hhid) %>% 
   mutate(first_animal_total = if_else(row_number()==1, animal_total, 0 )) %>%
   group_by(hv246) %>% 
@@ -565,15 +550,8 @@ descriptive <- descriptive %>%
   mutate(tp_totalminus7 = tp_totalminus7 * 100)
 
 
+under5_animal %>%
 
-kgc_table <- descriptive %>%
-  mutate(hv270 = case_when(
-    hv270 == "Poorest" ~ 1,
-    hv270 == "Poor" ~ 2,
-    hv270 == "Middle" ~ 3,
-    hv270 == "Rich" ~ 4,
-    hv270 == "Richest" ~ 5,
-    TRUE ~ NA_real_)) %>% 
   group_by(kgc_course) %>%
   summarise(
     n = n(),
@@ -605,48 +583,6 @@ kgc_table <- descriptive %>%
   theme_zebra() %>% theme_box() %>%
   align_nottext_col(align = "center", header = TRUE) %>%
   align_text_col(align = "center", header = TRUE)
-
-
-
-descriptive %>%
-  mutate(hv270 = case_when(
-    hv270 == "Poorest" ~ 1,
-    hv270 == "Poor" ~ 2,
-    hv270 == "Middle" ~ 3,
-    hv270 == "Rich" ~ 4,
-    hv270 == "Richest" ~ 5,
-    TRUE ~ NA_real_
-  )) %>%
-  group_by(kgc_course) %>%
-  summarise(
-    n = n(),
-    ses = round(mean(hv270, na.rm = TRUE), 2)
-  )
-
-
-descriptive %>% 
-
-
-
-
-test <- descriptive %>% filter(is.na(ClimateZ)) %>% select(LATNUM, LONGNUM) %>% 
-        distinct(.keep_all = T) %>% 
-  mutate(LATNUM = round(LATNUM, 8)) %>% 
-  mutate(LONGNUM = round(LONGNUM, 8)) %>% 
-  
-  
-  qflextable() %>% 
-  theme_zebra() %>% theme_box() %>%
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-
-descriptive %>% filter(is.na(ClimateZ)) %>% select(LATNUM, LONGNUM) %>% 
-  tabyl(LATNUM) %>% adorn_pct_formatting() %>% 
-  qflextable() %>% 
-  theme_zebra() %>% theme_box() %>%
-  align_nottext_col(align = "center", header = TRUE) %>%
-  align_text_col(align = "center", header = TRUE)
-  
 
  
 save_as_docx(kgc_table, path = "/data/mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 2/tables/kgc_table.docx")
@@ -1991,68 +1927,79 @@ under5_animal %>%
   bg(i = ~ other_present == "No", bg = "#f7d0d0")
 
 
-# Unadjusted Models (Animals Only) ------------------------------------------------------------------
+# Unadjusted Models Odds Ratio ------------------------------------------------------------------
 
-chicken_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                       chicken_poultry_duck_present, goat_sheep_present, diarrhea_dichot, name_year, hv001) %>% 
-                       filter(bull_cow_cattle_present == 0 & horse_donkey_present == 0 & goat_sheep_present == 0)
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
 
-model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present +
-                         (1|name_year/hv001), data = chicken_only, family = binomial)
+under5_animal$unique_hh <- as.factor(under5_animal$unique_hh)
+under5_animal$name_year <- as.factor(under5_animal$name_year)
 
-table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry"),exponentiate = TRUE) %>% bold_labels() %>% add_n()
+under5_animal_model <- under5_animal %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                          bull_cow_cattle_present, horse_donkey_present, name_year, unique_hh, hv270)
 
+under5_animal_model <- under5_animal_model %>% drop_na(hv270)
 
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + (1|name_year/unique_hh), 
+                       data = under5_animal_model, family = binomial)
 
-bull_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                                         chicken_poultry_duck_present, goat_sheep_present, diarrhea_dichot, name_year, hv001) %>% 
-                               filter(chicken_poultry_duck_present == 0 & horse_donkey_present == 0 & goat_sheep_present == 0)
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_chicken_or.rds")
 
-model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present +
-                      (1|name_year/hv001), data = bull_only, family = binomial)
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = binomial)
 
-table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle"),exponentiate = TRUE) %>% bold_labels() %>% add_n()
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_bull_or.rds")
 
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = binomial)
 
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_goat_or.rds")
 
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + (1|name_year/unique_hh), 
+                     data = under5_animal_model, family = binomial)
 
-goat_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                                      chicken_poultry_duck_present, goat_sheep_present, diarrhea_dichot, name_year, hv001) %>% 
-  filter(chicken_poultry_duck_present == 0 & horse_donkey_present == 0 & bull_cow_cattle_present == 0)
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_horse_or.rds")
 
-model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present +
-                      (1|name_year/hv001), data = goat_only, family = binomial)
+model_pig <- glmer(diarrhea_dichot ~ pig_present + (1|name_year/unique_hh), 
+                   data = under5_animal_model, family = binomial)
 
-table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep"),exponentiate = TRUE) %>% bold_labels() %>% add_n()
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_pig_or.rds")
 
+# Unadjusted Models Prevalence Ratio ------------------------------------------------------------------
 
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
 
-horse_only <- under5_animal %>% select(bull_cow_cattle_present, horse_donkey_present,       
-                                      chicken_poultry_duck_present, goat_sheep_present, diarrhea_dichot, name_year, hv001) %>% 
-                                filter(chicken_poultry_duck_present == 0 & goat_sheep_present == 0 & bull_cow_cattle_present == 0)
+under5_animal$unique_hh <- as.factor(under5_animal$unique_hh)
+under5_animal$name_year <- as.factor(under5_animal$name_year)
 
+under5_animal_model <- under5_animal %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                bull_cow_cattle_present, horse_donkey_present, name_year, unique_hh, hv270)
 
-model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present +
-                       (1|name_year/hv001), data = horse_only, family = binomial)
+under5_animal_model <- under5_animal_model %>% drop_na(hv270)
 
-table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey"),exponentiate = TRUE) %>% bold_labels() %>% add_n()
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + (1|name_year/unique_hh), 
+                       data = under5_animal_model, family = poisson(link = "log"))
 
-model_pig <- glmer(diarrhea_dichot ~ pig_present +
-                     (1|name_year/hv001), data = under5_animal, family = binomial)
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_chicken_pr.rds")
 
-table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig"),exponentiate = TRUE) %>% bold_labels()
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = poisson(link = "log"))
 
-model_other <- glmer(diarrhea_dichot ~ other_present +
-                       (1|name_year/hv001), data = under5_animal, family = binomial)
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_bull_pr.rds")
 
-table_other <- model_other %>% tbl_regression(label = list(other_present ~ "Other Animal"),exponentiate = TRUE) %>% bold_labels()
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = poisson(link = "log"))
 
-combined_models <- tbl_stack(tbls = list(table_chicken, table_bull, table_goat, table_horse))
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_goat_pr.rds")
 
-combined_models <- combined_models %>%
-  modify_header(label = "**Animal Type**")
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + (1|name_year/unique_hh), 
+                     data = under5_animal_model, family = poisson(link = "log"))
 
-combined_models
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_horse_pr.rds")
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present + (1|name_year/unique_hh), 
+                   data = under5_animal_model, family = poisson(link = "log"))
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/nointercept_model_pig_pr.rds")
 
 
 # Adjusted Models 2 Random Intercepts ---------------------------------------------------------
@@ -2321,48 +2268,409 @@ model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228
 saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_pig.rds")
 
 
+# Full Model PR -----------------------------------------------------------
+
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
+
+under5_animal_model <- under5_animal %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
+
+under5_animal_model <- under5_animal_model %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
+
+under5_animal_model <- under5_animal_model %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                      bull_cow_cattle_present, horse_donkey_present, epe_2228_95,
+                                                      hv270, b8, name_year, hv001, unique_hh, hv002, kgc_course)
+
+under5_animal_model$unique_hh <- as.factor(under5_animal_model$unique_hh)
+under5_animal_model$name_year <- as.factor(under5_animal_model$name_year)
+
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                       data = under5_animal_model, family = poisson(link = "log"))
+
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_chicken.rds")
+
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = poisson(link = "log"))
+
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_bull.rds")
+
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = poisson(link = "log"))
+
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_goat.rds")
+
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                     data = under5_animal_model, family = poisson(link = "log"))
+
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_horse.rds")
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present + kgc_course + hv270 + epe_2228_95 + b8 + (1|name_year/unique_hh), 
+                   data = under5_animal_model, family = poisson(link = "log"))
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_pig.rds")
+
+# Interaction Model PR -----------------------------------------------------------
+
+under5_animal <- under5_animal %>% mutate(unique_hh = paste0(name_year,"_",hv002))
+
+under5_animal_model <- under5_animal %>%
+  mutate(hv270 = case_when(
+    hv270 == 1 ~ "Poorest",
+    hv270 == 2 ~ "Poor",
+    hv270 == 3 ~ "Middle",
+    hv270 == 4 ~ "Rich",
+    hv270 == 5 ~ "Richest",
+    TRUE ~ NA_character_))
+
+under5_animal_model <- under5_animal_model %>%
+  mutate(hv270 = factor(hv270, levels = c("Poorest", "Poor", "Middle", "Rich", "Richest")))
+
+under5_animal_model <- under5_animal_model %>% select(diarrhea_dichot, chicken_poultry_duck_present, pig_present,  goat_sheep_present, 
+                                                      bull_cow_cattle_present, horse_donkey_present, 
+                                                      epe_1521_95, epe_1521_95_90day, epe_1521_inch,
+                                                      hv270, b8, name_year, hv001, unique_hh, hv002, kgc_course)
+
+under5_animal_model$unique_hh <- as.factor(under5_animal_model$unique_hh)
+under5_animal_model$name_year <- as.factor(under5_animal_model$name_year)
+
+model_chicken <- glmer(diarrhea_dichot ~ chicken_poultry_duck_present * epe_2228_95 + kgc_course + hv270 + b8 + (1|name_year/unique_hh), 
+                       data = under5_animal_model, family = poisson(link = "log"))
+
+under5_animal_model %>% tabyl(epe_1521_95, chicken_poultry_duck_present)
+under5_animal_model %>% tabyl(epe_1521_inch)
+
+summary(model_chicken)
+
+saveRDS(model_chicken, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_chicken_interaction.rds")
+
+model_bull <- glmer(diarrhea_dichot ~ bull_cow_cattle_present * epe_2228_95 + kgc_course + hv270 + b8 + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = poisson(link = "log"))
+
+
+library(lme4)
+library(clubSandwich)
+
+# Compute robust variance-covariance matrix accounting for clustering at 'name_year'
+robust_vcov <- vcovCR(model_bull, cluster = under5_animal_model$name_year, type = "CR2")
+
+# Compute coefficient table with robust standard errors
+coef_table <- coef_test(model_bull, vcov = robust_vcov, test = "Satterthwaite")
+
+
+summary(model_bull)
+
+
+saveRDS(model_bull, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_bull_interaction.rds")
+
+model_goat <- glmer(diarrhea_dichot ~ goat_sheep_present * epe_2228_95 + kgc_course + hv270 + b8 + (1|name_year/unique_hh), 
+                    data = under5_animal_model, family = poisson(link = "log"))
+
+summary(model_goat)
+
+
+saveRDS(model_goat, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_goat_interaction.rds")
+
+model_horse <- glmer(diarrhea_dichot ~ horse_donkey_present * epe_2228_95 + kgc_course + hv270 + b8 + (1|name_year/unique_hh), 
+                     data = under5_animal_model, family = poisson(link = "log"))
+
+summary(model_horse)
+
+
+saveRDS(model_horse, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_horse_interaction.rds")
+
+model_pig <- glmer(diarrhea_dichot ~ pig_present * epe_2228_95 + kgc_course + hv270 + b8 + (1|name_year/unique_hh), 
+                   data = under5_animal_model, family = poisson(link = "log"))
+
+summary(model_pig)
+
+
+saveRDS(model_pig, "~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_pig_interaction.rds")
+
 # Model Tables ------------------------------------------------------------
 
-model_chicken <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_chicken.rds")
-model_bull <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_bull.rds")
-model_goat <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_goat.rds")
-model_horse <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_horse.rds")
-model_pig <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/hhgroup_model_pig.rds")
+model_chicken <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_chicken_interaction_999.rds")
+model_bull <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_bull_interaction_999.rds")
+model_goat <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_goat_interaction_999.rds")
+model_horse <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_horse_interaction_999.rds")
+model_pig <- readRDS("~/data-mdavis65/steven_sola/0_Scripts/ClimateWASH/Aim 3/models/pr_model_pig_interaction_999.rds")
 
 table_chicken <- model_chicken %>% tbl_regression(label = list(chicken_poultry_duck_present ~ "Chicken/Duck/Poultry", 
                                                                kgc_course ~ "Koppen-Geiger Zone",
                                                                hv270 ~ "SES Group",
-                                                               epe_2228_95 ~ "EPE 22-28 Days",
+                                                               epe_1521_999 ~ "EPE",
                                                                b8 ~ "Age of Child (Years)"),
                                                   exponentiate = TRUE) %>% bold_labels()
+
+# Assuming your model object is called model_chicken
+# Extract coefficients of interest
+coef_indices <- c("chicken_poultry_duck_present", "epe_1521_999", 
+                  "chicken_poultry_duck_present:epe_1521_999")
+coefficients <- fixef(model_chicken)[coef_indices]
+
+# Calculate joint effect
+joint_log_effect <- sum(coefficients)
+
+# Extract variance-covariance matrix for these coefficients
+vcov_sub <- vcov(model_chicken)[coef_indices, coef_indices]
+
+# Calculate variance of joint effect (sum of all elements in the matrix)
+var_joint <- sum(vcov_sub)
+
+# Calculate standard error
+se_joint <- sqrt(var_joint)
+
+# Calculate 95% CI
+ci_lower_log <- joint_log_effect - 1.96 * se_joint
+ci_upper_log <- joint_log_effect + 1.96 * se_joint
+
+# Exponentiate to get rate ratios
+joint_effect <- exp(joint_log_effect)
+ci_lower <- exp(ci_lower_log)
+ci_upper <- exp(ci_upper_log)
+
+result <- c(joint_effect, ci_lower, ci_upper)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper")
+# Assuming we're continuing from the previous code
+# Calculate the Wald test statistic (z-value)
+z_value <- joint_log_effect / se_joint
+
+# Calculate the two-sided p-value
+p_value <- 2 * pnorm(-abs(z_value))
+
+# Add p-value to the results
+result <- c(joint_effect, ci_lower, ci_upper, p_value)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper", "p-value")
+
+# Print result with significance indicator
+sig_indicator <- if(p_value < 0.05) "*" else ""
+print(paste0(round(result[1], 4), " (95% CI: ", 
+             round(result[2], 4), ", ", round(result[3], 4), 
+             "), p = ", round(result[4], 4), sig_indicator))
+
 
 table_bull <- model_bull %>% tbl_regression(label = list(bull_cow_cattle_present ~ "Bull/Cow/Cattle", 
                                                          kgc_course ~ "Koppen-Geiger Zone",
                                                          hv270 ~ "SES Group",
-                                                         epe_2228_95 ~ "EPE 22-28 Days",
+                                                         epe_1521_999 ~ "EPE",
                                                          b8 ~ "Age of Child (Years)"),
                                             exponentiate = TRUE) %>% bold_labels()
+
+# Assuming your model object is called model_chicken
+# Extract coefficients of interest
+coef_indices <- c("bull_cow_cattle_present", "epe_1521_999", 
+                  "bull_cow_cattle_present:epe_1521_999")
+coefficients <- fixef(model_bull)[coef_indices]
+
+# Calculate joint effect
+joint_log_effect <- sum(coefficients)
+
+# Extract variance-covariance matrix for these coefficients
+vcov_sub <- vcov(model_bull)[coef_indices, coef_indices]
+
+# Calculate variance of joint effect (sum of all elements in the matrix)
+var_joint <- sum(vcov_sub)
+
+# Calculate standard error
+se_joint <- sqrt(var_joint)
+
+# Calculate 95% CI
+ci_lower_log <- joint_log_effect - 1.96 * se_joint
+ci_upper_log <- joint_log_effect + 1.96 * se_joint
+
+# Exponentiate to get rate ratios
+joint_effect <- exp(joint_log_effect)
+ci_lower <- exp(ci_lower_log)
+ci_upper <- exp(ci_upper_log)
+
+result <- c(joint_effect, ci_lower, ci_upper)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper")
+
+# Assuming we're continuing from the previous code
+# Calculate the Wald test statistic (z-value)
+z_value <- joint_log_effect / se_joint
+
+# Calculate the two-sided p-value
+p_value <- 2 * pnorm(-abs(z_value))
+
+# Add p-value to the results
+result <- c(joint_effect, ci_lower, ci_upper, p_value)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper", "p-value")
+
+# Print result with significance indicator
+sig_indicator <- if(p_value < 0.05) "*" else ""
+print(paste0(round(result[1], 4), " (95% CI: ", 
+             round(result[2], 4), ", ", round(result[3], 4), 
+             "), p = ", round(result[4], 4), sig_indicator))
+
 
 table_goat <- model_goat %>% tbl_regression(label = list(goat_sheep_present ~ "Goat/Sheep", 
                                                          kgc_course ~ "Koppen-Geiger Zone",
                                                          hv270 ~ "SES Group",
-                                                         epe_2228_95 ~ "EPE 22-28 Days",
+                                                         epe_1521_999 ~ "EPE",
                                                          b8 ~ "Age of Child (Years)"),
                                             exponentiate = TRUE) %>% bold_labels()
+
+# Assuming your model object is called model_chicken
+# Extract coefficients of interest
+coef_indices <- c("goat_sheep_present", "epe_1521_999", 
+                  "goat_sheep_present:epe_1521_999")
+coefficients <- fixef(model_goat)[coef_indices]
+
+# Calculate joint effect
+joint_log_effect <- sum(coefficients)
+
+# Extract variance-covariance matrix for these coefficients
+vcov_sub <- vcov(model_goat)[coef_indices, coef_indices]
+
+# Calculate variance of joint effect (sum of all elements in the matrix)
+var_joint <- sum(vcov_sub)
+
+# Calculate standard error
+se_joint <- sqrt(var_joint)
+
+# Calculate 95% CI
+ci_lower_log <- joint_log_effect - 1.96 * se_joint
+ci_upper_log <- joint_log_effect + 1.96 * se_joint
+
+# Exponentiate to get rate ratios
+joint_effect <- exp(joint_log_effect)
+ci_lower <- exp(ci_lower_log)
+ci_upper <- exp(ci_upper_log)
+
+result <- c(joint_effect, ci_lower, ci_upper)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper")
+# Assuming we're continuing from the previous code
+# Calculate the Wald test statistic (z-value)
+z_value <- joint_log_effect / se_joint
+
+# Calculate the two-sided p-value
+p_value <- 2 * pnorm(-abs(z_value))
+
+# Add p-value to the results
+result <- c(joint_effect, ci_lower, ci_upper, p_value)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper", "p-value")
+
+# Print result with significance indicator
+sig_indicator <- if(p_value < 0.05) "*" else ""
+print(paste0(round(result[1], 4), " (95% CI: ", 
+             round(result[2], 4), ", ", round(result[3], 4), 
+             "), p = ", round(result[4], 4), sig_indicator))
+
 
 table_horse <- model_horse %>% tbl_regression(label = list(horse_donkey_present ~ "Horse/Donkey", 
                                                            kgc_course ~ "Koppen-Geiger Zone",
                                                            hv270 ~ "SES Group",
-                                                           epe_2228_95 ~ "EPE 22-28 Days",
+                                                           epe_1521_999 ~ "EPE",
                                                            b8 ~ "Age of Child (Years)"),
                                               exponentiate = TRUE) %>% bold_labels()
+
+# Assuming your model object is called model_chicken
+# Extract coefficients of interest
+coef_indices <- c("horse_donkey_present", "epe_1521_999", 
+                  "horse_donkey_present:epe_1521_999")
+coefficients <- fixef(model_horse)[coef_indices]
+
+# Calculate joint effect
+joint_log_effect <- sum(coefficients)
+
+# Extract variance-covariance matrix for these coefficients
+vcov_sub <- vcov(model_horse)[coef_indices, coef_indices]
+
+# Calculate variance of joint effect (sum of all elements in the matrix)
+var_joint <- sum(vcov_sub)
+
+# Calculate standard error
+se_joint <- sqrt(var_joint)
+
+# Calculate 95% CI
+ci_lower_log <- joint_log_effect - 1.96 * se_joint
+ci_upper_log <- joint_log_effect + 1.96 * se_joint
+
+# Exponentiate to get rate ratios
+joint_effect <- exp(joint_log_effect)
+ci_lower <- exp(ci_lower_log)
+ci_upper <- exp(ci_upper_log)
+
+result <- c(joint_effect, ci_lower, ci_upper)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper")
+# Assuming we're continuing from the previous code
+# Calculate the Wald test statistic (z-value)
+z_value <- joint_log_effect / se_joint
+
+# Calculate the two-sided p-value
+p_value <- 2 * pnorm(-abs(z_value))
+
+# Add p-value to the results
+result <- c(joint_effect, ci_lower, ci_upper, p_value)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper", "p-value")
+
+# Print result with significance indicator
+sig_indicator <- if(p_value < 0.05) "*" else ""
+print(paste0(round(result[1], 4), " (95% CI: ", 
+             round(result[2], 4), ", ", round(result[3], 4), 
+             "), p = ", round(result[4], 4), sig_indicator))
+
 
 table_pig <- model_pig %>% tbl_regression(label = list(pig_present ~ "Pig", 
                                                        kgc_course ~ "Koppen-Geiger Zone",
                                                        hv270 ~ "SES Group",
-                                                       epe_2228_95 ~ "EPE 22-28 Days",
+                                                       epe_1521_999 ~ "EPE",
                                                        b8 ~ "Age of Child (Years)"),
                                           exponentiate = TRUE) %>% bold_labels()
+
+# Assuming your model object is called model_chicken
+# Extract coefficients of interest
+coef_indices <- c("pig_present", "epe_1521_999", 
+                  "pig_present:epe_1521_999")
+coefficients <- fixef(model_pig)[coef_indices]
+
+# Calculate joint effect
+joint_log_effect <- sum(coefficients)
+
+# Extract variance-covariance matrix for these coefficients
+vcov_sub <- vcov(model_pig)[coef_indices, coef_indices]
+
+# Calculate variance of joint effect (sum of all elements in the matrix)
+var_joint <- sum(vcov_sub)
+
+# Calculate standard error
+se_joint <- sqrt(var_joint)
+
+# Calculate 95% CI
+ci_lower_log <- joint_log_effect - 1.96 * se_joint
+ci_upper_log <- joint_log_effect + 1.96 * se_joint
+
+# Exponentiate to get rate ratios
+joint_effect <- exp(joint_log_effect)
+ci_lower <- exp(ci_lower_log)
+ci_upper <- exp(ci_upper_log)
+
+result <- c(joint_effect, ci_lower, ci_upper)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper")
+# Assuming we're continuing from the previous code
+# Calculate the Wald test statistic (z-value)
+z_value <- joint_log_effect / se_joint
+
+# Calculate the two-sided p-value
+p_value <- 2 * pnorm(-abs(z_value))
+
+# Add p-value to the results
+result <- c(joint_effect, ci_lower, ci_upper, p_value)
+names(result) <- c("Joint Effect", "95% CI Lower", "95% CI Upper", "p-value")
+
+# Print result with significance indicator
+sig_indicator <- if(p_value < 0.05) "*" else ""
+print(paste0(round(result[1], 4), " (95% CI: ", 
+             round(result[2], 4), ", ", round(result[3], 4), 
+             "), p = ", round(result[4], 4), sig_indicator))
+
 
 combined_models <- tbl_merge(tbls = list(table_chicken, table_bull, table_goat, table_horse, table_pig),
                              tab_spanner = c("**Chicken/Duck/Poultry**", "**Bull/Cow/Cattle**",
@@ -2373,7 +2681,7 @@ combined_models <- tbl_merge(tbls = list(table_chicken, table_bull, table_goat, 
                       dplyr::arrange(factor(var_label, levels =
                                               c("Chicken/Duck/Poultry", "Bull/Cow/Cattle",
                                                 "Goat/Sheep", "Horse/Donkey",
-                                                "Pig", "Region", "SES Group",
+                                                "Pig", "EPE", "SES Group",
                                                 "Age of Child (Years)"))))
 combined_models <- combined_models %>% as_gt()
 
@@ -2442,4 +2750,108 @@ reduced_model_horse <- readRDS("Aim 3/models/uniquehh_model_horse.rds")
 ## Pig
 full_model_pig <- readRDS("Aim 3/models/hhgroup_model_pig.rds")
 reduced_model_pig <- readRDS("Aim 3/models/uniquehh_model_pig.rds")
+(anova(reduced_model_pig, full_model_pig))
+
+# Random Slope and Random Intercept
+## Chicken
+full_model_chicken <- readRDS("Aim 3/models/hhgroup_model_chicken.rds")
+reduced_model_chicken <- readRDS("Aim 3/models/slopeint_model_chicken.rds")
+(anova(reduced_model_chicken, full_model_chicken))
+
+## Bull
+full_model_bull <- readRDS("Aim 3/models/hhgroup_model_bull.rds")
+reduced_model_bull <- readRDS("Aim 3/models/slopeint_model_bull.rds")
+(anova(reduced_model_bull, full_model_bull))
+
+## Goat
+full_model_goat <- readRDS("Aim 3/models/hhgroup_model_goat.rds")
+reduced_model_goat <- readRDS("Aim 3/models/slopeint_model_goat.rds")
+(anova(reduced_model_goat, full_model_goat))
+
+## Horse
+full_model_horse <- readRDS("Aim 3/models/hhgroup_model_horse.rds")
+reduced_model_horse <- readRDS("Aim 3/models/slopeint_model_horse.rds")
+(anova(reduced_model_horse, full_model_horse))
+
+## Pig
+full_model_pig <- readRDS("Aim 3/models/hhgroup_model_pig.rds")
+reduced_model_pig <- readRDS("Aim 3/models/slopeint_model_pig.rds")
+(anova(reduced_model_pig, full_model_pig))
+
+# PR vs OR
+## Chicken
+full_model_chicken <- readRDS("Aim 3/models/hhgroup_model_chicken.rds")
+reduced_model_chicken <- readRDS("Aim 2/models/pr_model_chicken.rds")
+(anova(reduced_model_chicken, full_model_chicken))
+
+## Bull
+full_model_bull <- readRDS("Aim 3/models/hhgroup_model_bull.rds")
+reduced_model_bull <- readRDS("Aim 2/models/pr_model_bull.rds")
+(anova(reduced_model_bull, full_model_bull))
+
+## Goat
+full_model_goat <- readRDS("Aim 3/models/hhgroup_model_goat.rds")
+reduced_model_goat <- readRDS("Aim 2/models/pr_model_goat.rds")
+(anova(reduced_model_goat, full_model_goat))
+
+## Horse
+full_model_horse <- readRDS("Aim 3/models/hhgroup_model_horse.rds")
+reduced_model_horse <- readRDS("Aim 2/models/pr_model_horse.rds")
+(anova(reduced_model_horse, full_model_horse))
+
+## Pig
+full_model_pig <- readRDS("Aim 3/models/hhgroup_model_pig.rds")
+reduced_model_pig <- readRDS("Aim 2/models/pr_model_pig.rds")
+(anova(reduced_model_pig, full_model_pig))
+
+# OR Full vs NO INTERCEPT
+## Chicken
+full_model_chicken <- readRDS("Aim 3/models/hhgroup_model_chicken.rds")
+reduced_model_chicken <- readRDS("Aim 3/models/nointercept_model_chicken_or.rds")
+(anova(reduced_model_chicken, full_model_chicken))
+
+## Bull
+full_model_bull <- readRDS("Aim 3/models/hhgroup_model_bull.rds")
+reduced_model_bull <- readRDS("Aim 3/models/nointercept_model_bull_or.rds")
+(anova(reduced_model_bull, full_model_bull))
+
+## Goat
+full_model_goat <- readRDS("Aim 3/models/hhgroup_model_goat.rds")
+reduced_model_goat <- readRDS("Aim 3/models/nointercept_model_goat_or.rds")
+(anova(reduced_model_goat, full_model_goat))
+
+## Horse
+full_model_horse <- readRDS("Aim 3/models/hhgroup_model_horse.rds")
+reduced_model_horse <- readRDS("Aim 3/models/nointercept_model_horse_or.rds")
+(anova(reduced_model_horse, full_model_horse))
+
+## Pig
+full_model_pig <- readRDS("Aim 3/models/hhgroup_model_pig.rds")
+reduced_model_pig <- readRDS("Aim 3/models/nointercept_model_pig_or.rds")
+(anova(reduced_model_pig, full_model_pig))
+
+# PR Full vs NO INTERCEPT
+## Chicken
+full_model_chicken <- readRDS("Aim 3/models/hhgroup_model_chicken.rds")
+reduced_model_chicken <- readRDS("Aim 3/models/nointercept_model_chicken_pr.rds")
+(anova(reduced_model_chicken, full_model_chicken))
+
+## Bull
+full_model_bull <- readRDS("Aim 3/models/hhgroup_model_bull.rds")
+reduced_model_bull <- readRDS("Aim 3/models/nointercept_model_bull_pr.rds")
+(anova(reduced_model_bull, full_model_bull))
+
+## Goat
+full_model_goat <- readRDS("Aim 3/models/hhgroup_model_goat.rds")
+reduced_model_goat <- readRDS("Aim 3/models/nointercept_model_goat_pr.rds")
+(anova(reduced_model_goat, full_model_goat))
+
+## Horse
+full_model_horse <- readRDS("Aim 3/models/hhgroup_model_horse.rds")
+reduced_model_horse <- readRDS("Aim 3/models/nointercept_model_horse_pr.rds")
+(anova(reduced_model_horse, full_model_horse))
+
+## Pig
+full_model_pig <- readRDS("Aim 3/models/hhgroup_model_pig.rds")
+reduced_model_pig <- readRDS("Aim 3/models/nointercept_model_pig_pr.rds")
 (anova(reduced_model_pig, full_model_pig))
