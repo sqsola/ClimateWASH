@@ -100,12 +100,6 @@ Title: Association of Animal Ownership with under-5 Diarrhea Prevalence in sub-S
 
 Title: Association of Animal Ownership and Extreme Precipitation Events with under-5 Diarrhea Prevalence in sub-Saharan Africa.
 
-### **Aim 4**
-
-Title: Clustering of Open Defecation Behaviors in Odisha, India
-
-Note: Code for Aim 4 is not included due to it containing PII.
-
 ## Files for Aims
 
 ### **Aim 1**
