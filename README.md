@@ -118,8 +118,6 @@ This code does the exploratory data analysis (EDA) and further analysis for Aim 
 
 ### **Aim 2 & 3**
 
-Aims 2 & 3 are focused on prevalence of diarrhea in children under the age of 5 in the household and its associations with animal ownership and extreme precipitation events. The data sources for Aims 2 & 3 are almost the same.
+Aims 2 & 3 are focused on prevalence of diarrhea in children under the age of 5 in the household and its associations with animal ownership and extreme precipitation events. The data sources for Aims 2 & 3 are almost the same. The primary difference for Aims 2 & 3 is that they use person-level data, as opposed to household-level data seen in Aim 1. As a result, the dataset ended up being 12,007,303 individuals and 5,000 variables. As a result, the dataset had to be built togather piecemeal and combined at the end. Aim 2 was used as a basis for Aim 3, but Aim 3 goes further by investigating the role of EPEs and its association with diarrhea prevalence. The EPEs were constructed in the Aim 3 Cleaning file.
 
-#### Aim2_Cleaning.R
-
-Work in progress...
+If someone is, for some reason, still reading this and has any questions, please email [sqsola at gmail dot com]. No guarantees, but I can try to help!
